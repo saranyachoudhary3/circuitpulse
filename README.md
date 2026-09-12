@@ -1,13 +1,14 @@
 ﻿# CircuitPulse ⚡
 **Real-Time AI Hardware Debugger & Intelligent Circuit Inspector**
 
-CircuitPulse is an edge-deployed computer vision and circuit reasoning engine built for Raspberry Pi 5 and edge devices. It inspects electronic breadboards and microcontroller setups in real time at **30 FPS**, detects wiring errors, validates pin mappings, decodes resistor color bands, and guides makers with actionable voice and visual feedback.
+CircuitPulse is an edge-deployed computer vision and circuit reasoning engine built for Raspberry Pi 5 and edge devices. It inspects electronic breadboards and microcontroller setups in real time at **30 FPS**, detects wiring errors, validates pin mappings, decodes resistor color bands, and guides makers with actionable AR overlays and voice feedback.
 
 ---
 
 ## 🌟 Key Features
 
 * **Real-Time 30 FPS Stream & Low-Latency Vision**: Optimized multi-threaded pipeline decoupling video streaming from AI inference.
+* **Interactive AR HUD Overlay**: Real-time vector canvas projecting glowing pin targets, breadboard row guides, and floating resistor color-code badges directly on the camera feed.
 * **Intelligent Circuit Verification**:
   * **Pin Mappings**: Automatically identifies misplaced jumper cables (e.g., *Wire connected to Arduino Pin 8 instead of Pin 17*).
   * **Breadboard Row Alignment**: Verifies component and wire pinholes on breadboard rows (e.g., *Wire in Row 8 must be moved to Row 17*).
@@ -22,31 +23,50 @@ CircuitPulse is an edge-deployed computer vision and circuit reasoning engine bu
 
 ---
 
-## 📂 Repository Structure
+## 📂 Repository Architecture
 
 `
 circuitpulse/
-├── pi_transfer/                 # Raspberry Pi deployment bundle
-│   ├── app.py                   # Main Flask video streaming & inference server
-│   ├── circuit.py               # Circuit verification engine & pin topology logic
-│   ├── circuit_engine.py        # Module alias for circuit engine
-│   ├── tracker.py               # Exponential moving average (EMA) bounding box smoother
-│   ├── resistor.py              # Computer vision resistor color band decoder
-│   ├── index.html               # Web interface & live HUD stream
-│   ├── circuits/                # JSON schemas for circuit verification
+├── ar/                          # Augmented Reality Frontend
+│   ├── index.html               # Web AR interactive viewport & diagnostics HUD
+│   ├── ar_overlay.js            # 60 FPS HTML5 vector AR canvas renderer
+│   ├── styles.css               # Futuristic cyberpunk / dark-mode AR styles
+│   └── README.md                # AR module documentation
+├── backend/                     # REST & Video Streaming Server
+│   ├── app.py                   # Flask backend serving AR, stream, detections & logic
+│   ├── requirements.txt         # Backend Python dependencies
+│   └── README.md                # Backend API documentation
+├── engine/                      # Circuit Reasoning & Netlist Verification
+│   ├── circuit.py               # Real-time topology reasoning & pin mapping (Pin 8 vs 17)
+│   ├── circuit_engine.py        # Engine import alias
+│   ├── rules.py                 # Netlist safety and polarity checker
+│   ├── netlist_data.py          # Circuit netlist schemas
+│   ├── test_engine.py           # Netlist engine verification test cases
+│   ├── circuits/                # JSON schemas for circuit validation
 │   │   ├── arduino_led.json     # Arduino LED blink & output circuit rules
 │   │   ├── voltage_divider.json # Resistor network rules
 │   │   └── freeform_safety.json # General short-circuit & safety rules
-│   └── models/                  # Production YOLOv8 weights (PyTorch .pt)
-│       ├── base.pt              # 48-class electronics model
-│       ├── passives.pt          # High-precision wire, resistor, and breadboard model
-│       ├── arduino.pt           # Arduino Uno & ATmega328P component model (0.989 mAP)
+│   └── README.md                # Engine documentation
+├── vision/                      # Computer Vision & Inference Modules
+│   ├── resistor.py              # 4-band resistor color-code decoder
+│   ├── tracker.py               # Exponential moving average (EMA) box smoother
+│   └── README.md                # Vision pipeline documentation
+├── pi_transfer/                 # Standalone Raspberry Pi 5 deployment package
+│   ├── app.py                   # Integrated Pi vision server
+│   ├── circuit.py               # Circuit verification engine
+│   ├── resistor.py              # Resistor decoder
+│   ├── tracker.py               # Box smoother
+│   ├── index.html               # Local HUD interface
+│   └── models/                  # Production YOLOv8 weights (.pt)
+│       ├── base.pt              # Electronics detector
+│       ├── passives.pt          # Wire, resistor, and breadboard model
+│       ├── arduino.pt           # Arduino Uno & ATmega328P model (0.989 mAP)
 │       └── faults.pt            # PCB hardware defect model
-├── test_circuit_engine.py       # Unit tests verifying all 7 circuit rules
+├── test_circuit_engine.py       # Automated 7-rule circuit verification tests
 ├── train_model.py               # YOLOv8 training script for custom datasets
 ├── deploy.py                    # Deployment helper script
-├── requirements.txt             # Python dependencies
-└── README.md                    # Documentation
+├── requirements.txt             # Project-wide dependencies
+└── README.md                    # Project documentation
 `
 
 ---
@@ -58,99 +78,41 @@ circuitpulse/
 * **Python**: 3.10+
 * **Camera**: IP Webcam (Android app) or USB Webcam / Pi Camera Module
 
-### 2. Installation on Raspberry Pi
+### 2. Quick Run (Backend + AR)
 
 `ash
 # Clone the repository
 git clone https://github.com/saranyachoudhary3/circuitpulse.git
 cd circuitpulse
 
-# Create Python virtual environment
-python3 -m venv ~/circuitpulse_env --system-site-packages
-source ~/circuitpulse_env/bin/activate
-
-# Install system dependencies
-sudo apt update
-sudo apt install -y python3-opencv espeak-ng ffmpeg libopenblas-dev
-
-# Install Python packages
+# Install dependencies
 pip install -r requirements.txt
+
+# Start backend server
+python backend/app.py
 `
 
-### 3. Running the Vision Server
+Open your browser at:
+`
+http://localhost:5000/
+`
+
+### 3. Running on Raspberry Pi 5
 
 `ash
 cd pi_transfer
 python3 app.py
 `
 
-Open your browser and navigate to:
-`
-http://<your-pi-ip>:5000
-`
-
-### 4. Running as a Background System Service (systemd)
-
-To make CircuitPulse run automatically on boot:
+### 4. Running Automated Tests
 
 `ash
-sudo tee /etc/systemd/system/circuitpulse.service > /dev/null <<EOF
-[Unit]
-Description=CircuitPulse Vision Server
-After=network.target
-
-[Service]
-WorkingDirectory=/home//circuitpulse/pi_transfer
-ExecStart=/home//circuitpulse_env/bin/python3 /home//circuitpulse/pi_transfer/app.py
-Restart=always
-RestartSec=5
-User=
-Environment=PYTHONUNBUFFERED=1
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable circuitpulse
-sudo systemctl start circuitpulse
-`
-
----
-
-## 🧪 Testing Circuit Rules
-
-Run the automated test suite verifying all 7 circuit rules:
-
-`ash
+# Run circuit engine tests
 python test_circuit_engine.py
+
+# Run netlist rules tests
+python engine/test_engine.py
 `
-
-Expected output:
-`
-Testing 100% Automatic Circuit Logic & Verification Engine...
-Test 1 (Auto-Detected Valid Circuit): PASS
-Test 2 (Wire in Pin 7, Expected at Pin 15): FAULT_DETECTED
-Test 3 (Wire Corrected from Pin 7 to Pin 15): PASS
-Test 4 (Missing Resistor): FAULT_DETECTED
-Test 5 (Pin 8 Mismatch): FAULT_DETECTED
-Test 6 (Auto-Detected Critical Short Circuit): FAULT_DETECTED
-Test 7 (Auto-Detected Incorrect Resistor Value): FAULT_DETECTED
-[ALL 7 AUTOMATIC DETECTION TESTS PASSED SUCCESSFULLY]
-`
-
----
-
-## 📡 API Endpoints
-
-| Endpoint | Method | Description |
-| :--- | :--- | :--- |
-| / | GET | Live web dashboard and HUD |
-| /api/stream | GET | MJPEG video stream with bounding boxes & HUD overlay |
-| /api/detections | GET | Real-time JSON list of detected objects, confidences, and bounding boxes |
-| /api/verification | GET | Current circuit report: status (PASS/FAULT), errors, remedies, and TTS |
-| /api/circuits | GET | List of available presets and auto-detected circuit identity |
-| /api/decode-resistor | POST | Trigger high-resolution crop color-code decoding on demand |
 
 ---
 
