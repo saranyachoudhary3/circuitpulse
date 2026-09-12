@@ -1,0 +1,13 @@
+{
+  "name": "Freeform Safety Check",
+  "id": "freeform_safety",
+  "description": "General safety rules: short-circuit protection, ungrounded power, and backwards ICs.",
+  "required_components": [],
+  "rules": [
+    {
+      "type": "no_direct_short",
+      "terminals": ["VCC", "GND"],
+      "description": "Direct bridge between power and ground rails"
+    }
+  ]
+}

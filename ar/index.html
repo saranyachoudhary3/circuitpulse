@@ -1,0 +1,188 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CircuitPulse AR | Intelligent Hardware Inspector</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <div class="brand">
+            <span class="brand-icon">⚡</span>
+            <h1>CircuitPulse AR</h1>
+        </div>
+        <div class="meta">
+            <span class="badge" id="fpsDisplay">30 FPS</span>
+            <span class="badge" id="inferDisplay">Infer: 18ms</span>
+            <div class="status-indicator">
+                <span class="dot" id="statusDot"></span>
+                <span id="statusText">Scanning</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="content">
+        <div class="viewport-container">
+            <img id="videoFeed" src="/api/stream" alt="Camera Stream" />
+            <canvas id="arCanvas"></canvas>
+
+            <div class="ar-banner ok" id="arBanner">
+                <div class="banner-title" id="bannerTitle">
+                    <span>CIRCUIT: ALL OK</span>
+                </div>
+                <div class="banner-solution" id="bannerSolution">
+                    All connections and components verified working.
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="section-box">
+                <div class="section-title">Detected Circuit</div>
+                <div class="circuit-name" id="circuitName">Arduino Circuit</div>
+                <div class="mcu-tag" id="mcuTag">ATmega328P (Arduino Uno)</div>
+            </div>
+
+            <div class="section-box">
+                <div class="section-title">Active Diagnosis</div>
+                <div id="errorsContainer">
+                    <div class="card" style="border-left: 3px solid #2ea043; color: #7ee787;">
+                        No faults detected. Circuit connections are sound.
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-box" style="flex: 1;">
+                <div class="section-title">Component Inventory</div>
+                <div id="componentsList">
+                    <div class="component-item">
+                        <span class="comp-name">Scanning components...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn" id="ttsToggleBtn">🔊 Audio: ON</button>
+                <button class="btn btn-primary" id="focusBtn">🎯 Autofocus</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="ar_overlay.js"></script>
+    <script>
+        let arOverlay = null;
+        let ttsEnabled = true;
+        let lastSpokenText = "";
+        let lastSpokenTime = 0;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            arOverlay = new AROverlayManager('arCanvas', 'videoFeed');
+            startPolling();
+
+            document.getElementById('ttsToggleBtn').addEventListener('click', () => {
+                ttsEnabled = !ttsEnabled;
+                document.getElementById('ttsToggleBtn').innerText = ttsEnabled ? '🔊 Audio: ON' : '🔇 Audio: OFF';
+            });
+
+            document.getElementById('focusBtn').addEventListener('click', () => {
+                fetch('/api/trigger-autofocus', { method: 'POST' });
+            });
+        });
+
+        function speakGuidance(text) {
+            if (!ttsEnabled || !text || !('speechSynthesis' in window)) return;
+            const now = Date.now();
+            if (text === lastSpokenText && (now - lastSpokenTime) < 8000) return;
+            lastSpokenText = text;
+            lastSpokenTime = now;
+
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.05;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        async function startPolling() {
+            while (true) {
+                try {
+                    const res = await fetch('/api/detections');
+                    if (res.ok) {
+                        const data = await res.json();
+                        updateUI(data);
+                    }
+                } catch (e) {}
+                await new Promise(r => setTimeout(r, 120));
+            }
+        }
+
+        function updateUI(data) {
+            const connected = data.camera_connected !== false;
+            document.getElementById('statusDot').className = connected ? 'dot active' : 'dot';
+            document.getElementById('statusText').innerText = connected ? 'Live' : 'Standby';
+
+            if (data.infer_ms) {
+                document.getElementById('inferDisplay').innerText = Infer: ms;
+            }
+
+            const rep = data.verification || {};
+            if (arOverlay) {
+                arOverlay.updateData(data.detections || [], rep);
+            }
+
+            const banner = document.getElementById('arBanner');
+            const bTitle = document.getElementById('bannerTitle');
+            const bSol = document.getElementById('bannerSolution');
+            const errBox = document.getElementById('errorsContainer');
+
+            document.getElementById('circuitName').innerText = rep.circuit_name || 'Scanning for circuit...';
+            document.getElementById('mcuTag').innerText = rep.mcu_info || 'Analyzing board...';
+
+            if (rep.errors && rep.errors.length > 0) {
+                banner.className = 'ar-banner fault';
+                bTitle.innerText = '! FAULT: ' + rep.errors[0].message;
+                bSol.innerText = '> ' + (rep.errors[0].remedy || 'Check wiring diagram.');
+                bSol.style.display = 'block';
+
+                errBox.innerHTML = rep.errors.map(e => 
+                    <div class="card" style="border-left: 3px solid #f85149; margin-bottom: 6px;">
+                        <div style="font-weight: 700; color: #ff7b72; font-size: 13px;"></div>
+                        <div style="color: #7ee787; font-size: 12px; margin-top: 4px;"></div>
+                    </div>
+                ).join('');
+
+                if (rep.tts) speakGuidance(rep.tts);
+            } else {
+                banner.className = 'ar-banner ok';
+                bTitle.innerText = '✔ CIRCUIT: ALL OK';
+                bSol.innerText = 'All components and pin connections are verified working.';
+                bSol.style.display = 'block';
+
+                errBox.innerHTML = 
+                    <div class="card" style="border-left: 3px solid #2ea043; color: #7ee787;">
+                        All connections, resistor, and jumper pins are verified OK.
+                    </div>
+                ;
+            }
+
+            const list = document.getElementById('componentsList');
+            const dets = data.detections || [];
+            if (dets.length === 0) {
+                list.innerHTML = '<div class="component-item"><span class="comp-name">No components in frame</span></div>';
+            } else {
+                list.innerHTML = dets.map(d => {
+                    let label = d.class;
+                    if (d.resistance) label +=  ();
+                    return 
+                        <div class="component-item">
+                            <span class="comp-name"></span>
+                            <span class="comp-conf">%</span>
+                        </div>
+                    ;
+                }).join('');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+{
+  "name": "Arduino LED Blink Circuit",
+  "id": "arduino_led",
+  "description": "Standard LED with 220-ohm current limiting resistor driven by digital pin 13.",
+  "required_components": [
+    {
+      "id": "mcu",
+      "type": "arduino_uno",
+      "label": "Arduino Uno"
+    },
+    {
+      "id": "board",
+      "type": "breadboard",
+      "label": "Breadboard"
+    },
+    {
+      "id": "r1",
+      "type": "resistor",
+      "label": "220-ohm Resistor",
+      "expected_pins": ["arduino:D13", "breadboard:row_15"]
+    },
+    {
+      "id": "led1",
+      "type": "led",
+      "label": "LED",
+      "expected_pins": ["breadboard:row_15", "arduino:GND"]
+    }
+  ],
+  "rules": [
+    {
+      "type": "no_direct_short",
+      "terminals": ["arduino:5V", "arduino:GND"],
+      "description": "5V power rail must not connect directly to Ground"
+    },
+    {
+      "type": "current_limiter",
+      "between": ["arduino:D13", "led1"],
+      "requires": "resistor",
+      "description": "LED must have a series resistor connected to Pin 13 to prevent burnout"
+    }
+  ]
+}

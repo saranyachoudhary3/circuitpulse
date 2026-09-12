@@ -1,0 +1,31 @@
+{
+  "name": "Voltage Divider",
+  "id": "voltage_divider",
+  "description": "Two series resistors dividing supply voltage down to an analog input.",
+  "required_components": [
+    {
+      "id": "board",
+      "type": "breadboard",
+      "label": "Breadboard"
+    },
+    {
+      "id": "r1",
+      "type": "resistor",
+      "label": "Resistor R1 (Upper)",
+      "expected_pins": ["rail:VCC", "breadboard:center"]
+    },
+    {
+      "id": "r2",
+      "type": "resistor",
+      "label": "Resistor R2 (Lower)",
+      "expected_pins": ["breadboard:center", "rail:GND"]
+    }
+  ],
+  "rules": [
+    {
+      "type": "no_direct_short",
+      "terminals": ["rail:VCC", "rail:GND"],
+      "description": "VCC must not connect directly to GND without resistance"
+    }
+  ]
+}
