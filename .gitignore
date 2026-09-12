@@ -1,0 +1,42 @@
+﻿# Secrets & Environment
+.env
+secrets.txt
+yolo-env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.class
+*.pyc
+pi_transfer/__pycache__/
+pi_transfer/**/__pycache__/
+
+# Datasets (Large, re-downloadable)
+Basic-electronic-component-*/
+Component-Detection-Arduino-UNO-*/
+DeepPCB/
+EESOB-*/
+ElectroCom61/
+PCB-Dataset-Defect-*/
+PCB-defects-*/
+circuit-elements-*/
+Resistor-Detection-*/
+Electronics-Components-*/
+yolov8-pcb-defects-*/
+
+# Training runs, caches & raw weights
+runs/
+trained_models/
+weights/
+yolov8n.pt
+*.zip
+scratch_*.py
+export_ncnn.py
+
+# Redundant / archive model files
+pi_transfer/models/*_prev.pt
+pi_transfer/models/circuitpulse_m*.pt
+pi_transfer/models/PRODUCTION_*.pt
+pi_transfer/models/*_ncnn_model/
+pi_transfer/models_ncnn.zip
+pi_transfer/models/*.zip
