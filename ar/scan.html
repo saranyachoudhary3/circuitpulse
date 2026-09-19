@@ -3,59 +3,111 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CircuitPulse - Live Scan</title>
+<title>CircuitPulse AR - Live Scan</title>
 <style>
-  body { margin:0; background:#0a0e14; color:#e6edf3; font-family: -apple-system, sans-serif; }
-  #video { width:100%; max-width:600px; display:block; margin:0 auto; border-radius:8px; }
-  #wrap { padding:16px; text-align:center; }
-  #status { margin-top:12px; font-size:14px; color:#7ee787; }
-  #results { margin-top:16px; text-align:left; max-width:600px; margin-left:auto; margin-right:auto; }
-  .det { background:#151b23; border:1px solid #2d333b; border-radius:6px; padding:10px; margin-bottom:8px; }
-  .det .cls { color:#58a6ff; font-weight:bold; }
-  .det .conf { color:#8b949e; font-size:13px; }
-  #err { color:#f85149; margin-top:12px; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#0a0e14; color:#e6edf3; font-family: -apple-system, "Segoe UI", sans-serif; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; background:#0d1117; border-bottom:1px solid #21262d; }
+  header .title { color:#39d3bb; font-weight:700; font-size:18px; display:flex; align-items:center; gap:8px; }
+  .dot { width:10px; height:10px; border-radius:50%; background:#484f58; display:inline-block; }
+  .dot.active { background:#2ea043; box-shadow:0 0 6px #2ea043; }
+  .status { display:flex; align-items:center; gap:6px; font-size:13px; color:#8b949e; }
+
+  .layout { display:flex; flex-wrap:wrap; gap:16px; padding:16px; }
+  .left { flex:2; min-width:300px; }
+  .right { flex:1; min-width:260px; }
+
+  #video { width:100%; border-radius:8px; background:#000; display:block; }
+
+  .ar-banner { border-radius:8px; padding:14px 16px; margin-top:12px; }
+  .ar-banner.ok { background:#0d1f14; border:1px solid #2ea043; }
+  .ar-banner.fault { background:#2a0f0f; border:1px solid #f85149; }
+  .ar-banner .title { font-weight:700; font-size:16px; }
+  .ar-banner.ok .title { color:#7ee787; }
+  .ar-banner.fault .title { color:#ff7b72; }
+  .ar-banner .sol { margin-top:6px; font-size:13px; color:#8b949e; }
+
+  .section-box { background:#0d1117; border:1px solid #21262d; border-radius:8px; padding:14px; margin-bottom:14px; }
+  .section-title { font-size:11px; letter-spacing:1px; text-transform:uppercase; color:#8b949e; margin-bottom:8px; }
+  .circuit-name { color:#39d3bb; font-weight:700; font-size:17px; }
+  .mcu-tag { display:inline-block; background:#161b22; border:1px solid #30363d; color:#8b949e; font-size:12px; padding:3px 8px; border-radius:5px; margin-top:6px; }
+
+  .card { background:#161b22; border-radius:6px; padding:10px; font-size:13px; }
+  .component-item { display:flex; justify-content:space-between; background:#161b22; border-radius:6px; padding:8px 10px; margin-bottom:6px; font-size:13px; }
+  .comp-name { color:#58a6ff; }
+  .comp-conf { color:#8b949e; }
+
+  #err { color:#f85149; padding:0 20px; }
 </style>
 </head>
 <body>
-<div id="wrap">
-  <h2>CircuitPulse - Live Scan</h2>
-  <video id="video" autoplay playsinline muted></video>
-  <canvas id="canvas" style="display:none;"></canvas>
-  <div id="status">Requesting camera access...</div>
-  <div id="err"></div>
-  <div id="results"></div>
+
+<header>
+  <div class="title">⚡ CircuitPulse AR <span style="color:#8b949e; font-weight:400; font-size:13px;">— Live Scan</span></div>
+  <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">Starting...</span></div>
+</header>
+
+<div id="err"></div>
+
+<div class="layout">
+  <div class="left">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <div class="ar-banner ok" id="arBanner">
+      <div class="title" id="bannerTitle">Waiting for first scan...</div>
+      <div class="sol" id="bannerSolution"></div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="section-box">
+      <div class="section-title">Detected Circuit</div>
+      <div class="circuit-name" id="circuitName">Scanning for circuit...</div>
+      <div class="mcu-tag" id="mcuTag">Analyzing board...</div>
+    </div>
+
+    <div class="section-box">
+      <div class="section-title">Active Diagnosis</div>
+      <div id="errorsContainer">
+        <div class="card" style="border-left:3px solid #30363d; color:#8b949e;">No scan yet.</div>
+      </div>
+    </div>
+
+    <div class="section-box">
+      <div class="section-title">Component Inventory</div>
+      <div id="componentsList">
+        <div class="component-item"><span class="comp-name">Scanning components...</span></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
-const statusEl = document.getElementById('status');
-const errEl = document.getElementById('err');
-const resultsEl = document.getElementById('results');
 const ctx = canvas.getContext('2d');
-
+const errEl = document.getElementById('err');
 let sending = false;
 
 async function start() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" }, // rear camera on phones
+      video: { facingMode: "environment" },
       audio: false
     });
     video.srcObject = stream;
-    statusEl.textContent = "Camera live - scanning...";
-    setInterval(captureAndSend, 1000); // send one frame per second
+    document.getElementById('statusDot').className = 'dot active';
+    document.getElementById('statusText').innerText = 'Live';
+    setInterval(captureAndSend, 1000);
   } catch (e) {
-    errEl.textContent = "Camera access failed: " + e.message +
-      " (make sure you allowed camera permission, and that this page is loaded over HTTPS)";
-    statusEl.textContent = "";
+    errEl.textContent = "Camera access failed: " + e.message;
   }
 }
 
 function captureAndSend() {
   if (sending || video.videoWidth === 0) return;
   sending = true;
-
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   ctx.drawImage(video, 0, 0);
@@ -64,14 +116,10 @@ function captureAndSend() {
     try {
       const formData = new FormData();
       formData.append("frame", blob, "frame.jpg");
-
       const res = await fetch("/api/scan-frame", { method: "POST", body: formData });
       const data = await res.json();
-
-      if (data.detections) {
-        renderResults(data.detections);
-        statusEl.textContent = `Scanning... (${data.detections.length} object(s) found)`;
-      }
+      if (data.success) updateUI(data);
+      else errEl.textContent = data.error || "Scan error";
     } catch (e) {
       errEl.textContent = "Could not reach backend: " + e.message;
     }
@@ -79,14 +127,45 @@ function captureAndSend() {
   }, "image/jpeg", 0.8);
 }
 
-function renderResults(detections) {
-  if (detections.length === 0) {
-    resultsEl.innerHTML = "<div class='det'>No components detected yet - point the camera at your circuit.</div>";
-    return;
+function updateUI(data) {
+  const rep = data.verification || {};
+  const banner = document.getElementById('arBanner');
+  const bTitle = document.getElementById('bannerTitle');
+  const bSol = document.getElementById('bannerSolution');
+  const errBox = document.getElementById('errorsContainer');
+
+  document.getElementById('circuitName').innerText = rep.circuit_name || 'Scanning for circuit...';
+  document.getElementById('mcuTag').innerText = rep.mcu_info || 'Analyzing board...';
+
+  if (rep.errors && rep.errors.length > 0) {
+    banner.className = 'ar-banner fault';
+    bTitle.innerText = '! FAULT: ' + rep.errors[0].message;
+    bSol.innerText = '> ' + (rep.errors[0].remedy || 'Check wiring diagram.');
+
+    errBox.innerHTML = rep.errors.map(e => `
+      <div class="card" style="border-left:3px solid #f85149; margin-bottom:6px;">
+        <div style="font-weight:700; color:#ff7b72; font-size:13px;">${e.message}</div>
+        <div style="color:#7ee787; font-size:12px; margin-top:4px;">${e.remedy || ''}</div>
+      </div>`).join('');
+  } else {
+    banner.className = 'ar-banner ok';
+    bTitle.innerText = '✔ CIRCUIT: ALL OK';
+    bSol.innerText = 'All components and pin connections are verified working.';
+    errBox.innerHTML = `<div class="card" style="border-left:3px solid #2ea043; color:#7ee787;">
+      All connections, resistor, and jumper pins are verified OK.</div>`;
   }
-  resultsEl.innerHTML = detections.map(d =>
-    `<div class="det"><span class="cls">${d.class}</span> <span class="conf">${(d.confidence * 100).toFixed(0)}% confidence</span></div>`
-  ).join("");
+
+  const list = document.getElementById('componentsList');
+  const dets = data.detections || [];
+  if (dets.length === 0) {
+    list.innerHTML = '<div class="component-item"><span class="comp-name">No components in frame</span></div>';
+  } else {
+    list.innerHTML = dets.map(d => {
+      let label = d.class + (d.resistance ? ` (${d.resistance})` : '');
+      const conf = d.confidence ? Math.round(d.confidence * 100) + '%' : '';
+      return `<div class="component-item"><span class="comp-name">${label}</span><span class="comp-conf">${conf}</span></div>`;
+    }).join('');
+  }
 }
 
 start();
