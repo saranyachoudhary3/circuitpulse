@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CircuitPulse - Live Scan</title>
+<style>
+  body { margin:0; background:#0a0e14; color:#e6edf3; font-family: -apple-system, sans-serif; }
+  #video { width:100%; max-width:600px; display:block; margin:0 auto; border-radius:8px; }
+  #wrap { padding:16px; text-align:center; }
+  #status { margin-top:12px; font-size:14px; color:#7ee787; }
+  #results { margin-top:16px; text-align:left; max-width:600px; margin-left:auto; margin-right:auto; }
+  .det { background:#151b23; border:1px solid #2d333b; border-radius:6px; padding:10px; margin-bottom:8px; }
+  .det .cls { color:#58a6ff; font-weight:bold; }
+  .det .conf { color:#8b949e; font-size:13px; }
+  #err { color:#f85149; margin-top:12px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <h2>CircuitPulse - Live Scan</h2>
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas" style="display:none;"></canvas>
+  <div id="status">Requesting camera access...</div>
+  <div id="err"></div>
+  <div id="results"></div>
+</div>
+
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const statusEl = document.getElementById('status');
+const errEl = document.getElementById('err');
+const resultsEl = document.getElementById('results');
+const ctx = canvas.getContext('2d');
+
+let sending = false;
+
+async function start() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" }, // rear camera on phones
+      audio: false
+    });
+    video.srcObject = stream;
+    statusEl.textContent = "Camera live - scanning...";
+    setInterval(captureAndSend, 1000); // send one frame per second
+  } catch (e) {
+    errEl.textContent = "Camera access failed: " + e.message +
+      " (make sure you allowed camera permission, and that this page is loaded over HTTPS)";
+    statusEl.textContent = "";
+  }
+}
+
+function captureAndSend() {
+  if (sending || video.videoWidth === 0) return;
+  sending = true;
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0);
+
+  canvas.toBlob(async (blob) => {
+    try {
+      const formData = new FormData();
+      formData.append("frame", blob, "frame.jpg");
+
+      const res = await fetch("/api/scan-frame", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (data.detections) {
+        renderResults(data.detections);
+        statusEl.textContent = `Scanning... (${data.detections.length} object(s) found)`;
+      }
+    } catch (e) {
+      errEl.textContent = "Could not reach backend: " + e.message;
+    }
+    sending = false;
+  }, "image/jpeg", 0.8);
+}
+
+function renderResults(detections) {
+  if (detections.length === 0) {
+    resultsEl.innerHTML = "<div class='det'>No components detected yet - point the camera at your circuit.</div>";
+    return;
+  }
+  resultsEl.innerHTML = detections.map(d =>
+    `<div class="det"><span class="cls">${d.class}</span> <span class="conf">${(d.confidence * 100).toFixed(0)}% confidence</span></div>`
+  ).join("");
+}
+
+start();
+</script>
+</body>
+</html>
