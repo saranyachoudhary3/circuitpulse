@@ -486,23 +486,30 @@ def scan_frame():
     if frame is None:
         return jsonify({"error": "could not decode image"}), 400
 
-    results = model.predict(
-        frame,
-        conf=0.28,
-        imgsz=IMG_SIZE,
-        max_det=MAX_DETECTIONS,
-        verbose=False
-    )
+    if not (model_main and model_passives):
+        return jsonify({"error": "models not loaded yet"}), 503
 
-    detections = []
-    for box in results[0].boxes:
-        detections.append({
-            "class": results[0].names[int(box.cls)],
-            "confidence": round(float(box.conf), 3),
-        })
+    h, w = frame.shape[:2]
+    d_pass = run_inference(model_passives, frame)
+    d_main_raw = run_inference(model_main, frame)
+    d_main = [b for b in d_main_raw if b["class"].lower() in {"arduino_uno", "arduino_nano", "arduino_mega", "esp32", "breadboard", "led"}]
+    merged = deduplicate_and_merge_wires(d_pass + d_main)
+    detections = filter_detections(merged, w, h, full_frame=frame)
 
-    return jsonify({"success": True, "detections": detections})
+    for d in detections:
+        if d["class"].lower() == "resistor":
+            bbox = d["bbox"]
+            rx1 = max(0, bbox["x1"]); ry1 = max(0, bbox["y1"])
+            rx2 = min(w, bbox["x2"]); ry2 = min(h, bbox["y2"])
+            if (rx2 - rx1) >= 25 and (ry2 - ry1) >= 10:
+                crop = frame[ry1:ry2, rx1:rx2]
+                info = resistor_decoder.decode(crop)
+                if info:
+                    d["resistance"] = info["formatted"]
 
+    report = circuit_engine.verify(detections, frame_width=w, frame_height=h)
+
+    return jsonify({"success": True, "detections": detections, "verification": report})
 
 def main():
     load_dual_models()
