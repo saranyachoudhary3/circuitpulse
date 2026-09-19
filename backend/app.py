@@ -474,6 +474,35 @@ def api_autofocus():
         pass
     return jsonify({"status": "ok", "action": "focus_triggered"})
 
+@app.route("/api/scan-frame", methods=["POST"])
+def scan_frame():
+    file = request.files.get("frame")
+    if not file:
+        return jsonify({"error": "no frame uploaded"}), 400
+
+    data = file.read()
+    nparr = np.frombuffer(data, np.uint8)
+    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if frame is None:
+        return jsonify({"error": "could not decode image"}), 400
+
+    results = model.predict(
+        frame,
+        conf=0.28,
+        imgsz=IMG_SIZE,
+        max_det=MAX_DETECTIONS,
+        verbose=False
+    )
+
+    detections = []
+    for box in results[0].boxes:
+        detections.append({
+            "class": results[0].names[int(box.cls)],
+            "confidence": round(float(box.conf), 3),
+        })
+
+    return jsonify({"success": True, "detections": detections})
+
 
 def main():
     load_dual_models()
