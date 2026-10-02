@@ -1,0 +1,1 @@
+{"preset_id":"button_pulldown","fault_class":"extra_connection_wrong_pin","frames":[],"confirmations":[{"from":"button:2","to":"arduino:D3","accepted":true,"wire_color":"yellow"}],"expected_status":"FAULT"}

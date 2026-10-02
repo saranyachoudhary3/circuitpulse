@@ -1,0 +1,1 @@
+{"preset_id":"i2c_sensor","fault_class":"extra_connection_wrong_pin","frames":[],"confirmations":[{"from":"arduino:5V","to":"sensor:VCC","accepted":true,"wire_color":"red"}],"expected_status":"FAULT"}

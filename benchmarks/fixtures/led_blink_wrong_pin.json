@@ -1,0 +1,1 @@
+{"preset_id":"led_blink","fault_class":"extra_connection_wrong_pin","frames":[],"confirmations":[{"from":"arduino:D12","to":"bb:r7a","accepted":true,"wire_color":"yellow"}],"expected_status":"FAULT"}

@@ -1,4 +1,4 @@
-﻿# CircuitPulse Circuit Reasoning Engine ⚙️
+# CircuitPulse Circuit Reasoning Engine 
 
 The engine analyzes electronic component topologies, verifies wiring continuity, and catches circuit faults in real time.
 

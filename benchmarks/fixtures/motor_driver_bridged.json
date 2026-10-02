@@ -1,0 +1,1 @@
+{"preset_id":"motor_driver","fault_class":"bridged_signals","frames":[],"confirmations":[{"from":"driver:IN1","to":"driver:IN2","accepted":true,"wire_color":"yellow"}],"expected_status":"FAULT"}

@@ -1,0 +1,1 @@
+{"preset_id":"led_blink","fault_class":"bridged_signals","frames":[],"confirmations":[{"from":"bb:r7a","to":"bb:r7e","accepted":true,"wire_color":"green"}],"expected_status":"FAULT"}

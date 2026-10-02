@@ -1,6 +1,6 @@
 # CircuitPulse - Comprehensive Training Report
 
-**Generated:** 2026-09-11 18:43:24
+**Generated:** 2026-09-11 18:43:24 | **Updated:** 2026-10-02 21:30:00
 
 ---
 
@@ -57,6 +57,36 @@
 - **Precision:** 0.5712
 - **Recall:** 0.5860
 - **Weights:** `C:\Users\Ayushman\Desktop\circuit_pulse\trained_models\circuitpulse_m4_Electronics-components-1_best.pt`
+
+---
+
+## Model 5: Merged-Dataset (v3 Unified)
+
+- **Classes (8):** arduino_uno, arduino_nano, arduino_mega, esp32, breadboard, resistor, wire, led
+- **Training images:** 7,528
+- **Validation images:** 463
+- **Test images:** 407
+- **Epochs:** 70 (full run, no early stop)
+- **Training time:** 1.595 hours (95.7 min)
+- **Architecture:** YOLOv8n (3,007,208 params, 8.1 GFLOPs)
+- **GPU:** NVIDIA GeForce RTX 5050 Laptop GPU (CUDA 12.8)
+- **Optimizer:** AdamW (lr=0.000833, momentum=0.9)
+- **mAP@50:** 0.656
+- **mAP@50-95:** 0.458
+- **Precision:** 0.726
+- **Recall:** 0.614
+- **Per-class mAP@50:**
+  - breadboard: 0.935 ★
+  - arduino_uno: 0.847
+  - arduino_nano: 0.820
+  - arduino_mega: 0.749
+  - esp32: 0.616
+  - resistor: 0.506
+  - led: 0.462
+  - wire: 0.309
+- **Inference speed:** 2.6ms/image (GPU)
+- **Weights:** `C:\Users\Ayushman\Desktop\circuit_pulse\trained_models\circuitpulse_v3_merged_best.pt`
+- **Note:** Unified model covering all 8 core CircuitPulse classes. Boards and breadboard detection is excellent (75-94% mAP). Wire/LED detection remains challenging due to visual ambiguity and small training samples for those classes. Recommend supplementing with specialized per-class models (m1-m4) for production dual-inference.
 
 ---
 

@@ -1,0 +1,1 @@
+{"preset_id":"pwm_rgb","fault_class":"extra_connection_wrong_pin","frames":[],"confirmations":[{"from":"arduino:D2","to":"rgb:red_anode","accepted":true,"wire_color":"red"}],"expected_status":"FAULT"}

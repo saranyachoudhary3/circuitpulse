@@ -1,0 +1,1 @@
+{"preset_id":"led_blink","fault_class":"direct_short","frames":[],"confirmations":[{"from":"arduino:5V","to":"arduino:GND","accepted":true,"wire_color":"red"}],"expected_status":"FAULT"}

@@ -1,4 +1,4 @@
-﻿# CircuitPulse Vision Layer 👁️
+# CircuitPulse Vision Layer 
 
 The vision module provides high-speed computer vision pipelines for embedded edge devices:
 

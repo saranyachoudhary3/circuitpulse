@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CircuitPulse | Intelligent Hardware Inspector</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="grid-overlay"></div>
+    <header>
+        <div class="brand">
+            <div class="pulse-ring"></div>
+            <h1>CIRCUIT<span class="accent">PULSE</span></h1>
+        </div>
+        <div class="meta">
+            <span class="badge hud-badge" id="powerBankTag"> SOURCE: UNKNOWN</span>
+            <span class="badge hud-badge" id="fpsDisplay">30 FPS</span>
+            <span class="badge hud-badge" id="inferDisplay">Infer: 18ms</span>
+            <span class="badge hud-badge" id="vlmBadge" style="color:#00ffcc;">AI: --</span>
+            <div class="status-indicator">
+                <span class="dot" id="statusDot"></span>
+                <span id="statusText">Scanning</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="content">
+        <div class="viewport-container">
+            <div class="viewport-hud-corners"></div>
+            <img id="videoFeed" src="/api/stream" alt="Camera Stream" />
+            <canvas id="overlayCanvas"></canvas>
+
+            <div class="control-panel">
+                <button class="action-btn" onclick="triggerFocus()"> Auto-Focus Camera</button>
+            </div>
+
+            <div class="status-banner ok" id="arBanner">
+                <div class="banner-title" id="bannerTitle">
+                    <span>[INSPECTION] ELECTRICAL PROOF PENDING</span>
+                </div>
+                <div class="banner-solution" id="bannerSolution">
+                    Select a reviewed blueprint and confirm its graph before powering the circuit.
+                </div>
+            </div>
+            
+            <div class="crosshair"></div>
+        </div>
+
+        <div class="sidebar">
+            <div class="section-box hud-panel">
+                <div class="section-title"> TOPOLOGY GRAPH</div>
+                <div class="circuit-name" id="circuitName">Analyzing graph...</div>
+                <div class="mcu-tag" id="mcuTag">Awaiting MCU</div>
+                <div class="mcu-tag" id="evidenceTag">Electrical proof: awaiting topology</div>
+            </div>
+
+            <div class="section-box hud-panel">
+                <div class="section-title"> LIVE DEBUG SESSION</div>
+                <select id="presetSelect" aria-label="Circuit blueprint" style="width:100%; margin-bottom:6px; background:#161b22; color:#e6edf3; border:1px solid #30363d; padding:7px; font-family:'JetBrains Mono',monospace;">
+                    <option value="">Choose blueprint…</option>
+                </select>
+                <button class="btn btn-primary" id="startSessionBtn"> Start Debug Session</button>
+                <div id="sessionState" class="card" style="margin-top:8px;"><div class="card-title" style="color:#8b949e">Select a reviewed circuit blueprint.</div></div>
+            </div>
+
+            <div class="section-box hud-panel">
+                <div class="section-title"> LOGIC SOLVER</div>
+                <div id="errorsContainer">
+                    <div class="card ok-card">
+                        <div class="card-title"> SOLVER STATE: PERFECT</div>
+                        <div class="card-desc">The circuit is correct and working optimally.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-box hud-panel">
+                <div class="section-title"> AI CIRCUIT ANALYSIS</div>
+                <div id="vlmContainer">
+                    <div class="card">
+                        <div class="card-title" style="color:#8b949e">Initializing AI analysis...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-box hud-panel" style="flex: 1;">
+                <div class="section-title"> DETECTED NODES</div>
+                <div id="componentsList">
+                    <div class="component-item">
+                        <span class="comp-name">Scanning...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn" id="ttsToggleBtn"> Audio: ON</button>
+                <button class="btn btn-primary" id="focusBtn"> Autofocus</button>
+                <button class="btn btn-primary" id="analyzeBtn" style="background: rgba(0,255,204,0.15);"> AI Analyze</button>
+                <button class="btn" id="snapBtn" style="background: rgba(255,204,0,0.1);"> Snapshot</button>
+            </div>
+            <div style="display:flex; gap:6px; margin-top:6px;">
+                <input type="text" id="askInput" placeholder="Ask about this circuit..." style="flex:1; background:rgba(255,255,255,0.05); border:1px solid #30363d; color:#e6edf3; padding:6px 10px; border-radius:3px; font-family:'JetBrains Mono',monospace; font-size:0.75rem;" />
+                <button class="btn" id="askBtn" style="background:rgba(0,136,255,0.15); color:#0088ff; white-space:nowrap;"> Ask AI</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="overlay.js"></script>
+    <script>
+        let arOverlay = null;
+        let ttsEnabled = true;
+        let lastSpokenText = "";
+        let lastSpokenTime = 0;
+        let activeSessionId = null;
+        let lastSessionPollAt = 0;
+        let sessionSocket = null;
+
+        async function triggerFocus() {
+            try {
+                const res = await fetch('/api/focus', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    console.log('Camera focus triggered');
+                } else {
+                    console.warn(data.message);
+                }
+            } catch (e) {
+                console.error('Focus error:', e);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            arOverlay = new OverlayManager('overlayCanvas', 'videoFeed');
+            startPolling();
+            loadPresets();
+
+            document.getElementById('ttsToggleBtn').addEventListener('click', () => {
+                ttsEnabled = !ttsEnabled;
+                document.getElementById('ttsToggleBtn').innerText = ttsEnabled ? ' Audio: ON' : ' Audio: OFF';
+                document.getElementById('ttsToggleBtn').classList.toggle('off');
+            });
+
+            document.getElementById('focusBtn').addEventListener('click', () => {
+                fetch('/api/focus', { method: 'POST' });
+            });
+
+            document.getElementById('analyzeBtn').addEventListener('click', () => {
+                fetch('/api/analyze', { method: 'POST' });
+                document.getElementById('vlmContainer').innerHTML = '<div class="card"><div class="card-title" style="color:#ffcc00">Re-analyzing circuit...</div></div>';
+            });
+
+            document.getElementById('snapBtn').addEventListener('click', () => {
+                fetch('/api/snapshot', { method: 'POST' })
+                    .then(r => r.json())
+                    .then(d => { if (d.status === 'success') { document.getElementById('snapBtn').innerText = ' Saved'; setTimeout(() => { document.getElementById('snapBtn').innerText = ' Snapshot'; }, 2000); }});
+            });
+
+            function submitQuestion() {
+                const input = document.getElementById('askInput');
+                const q = input.value.trim();
+                if (!q) return;
+                fetch('/api/ask', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({question: q}) });
+                input.value = '';
+                document.getElementById('vlmContainer').innerHTML = '<div class="card"><div class="card-title" style="color:#0088ff">Thinking about: ' + q + '</div></div>';
+            }
+            document.getElementById('askBtn').addEventListener('click', submitQuestion);
+            document.getElementById('askInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') submitQuestion(); });
+            document.getElementById('startSessionBtn').addEventListener('click', startSession);
+        });
+
+        async function loadPresets() {
+            try {
+                const response = await fetch('/api/presets');
+                const data = await response.json();
+                const select = document.getElementById('presetSelect');
+                (data.presets || []).forEach(preset => {
+                    const option = document.createElement('option');
+                    option.value = preset.id;
+                    option.textContent = preset.name;
+                    select.appendChild(option);
+                });
+            } catch (_) {
+                document.getElementById('sessionState').innerHTML = '<div class="card-title" style="color:#ff3366">Blueprint catalog unavailable.</div>';
+            }
+        }
+
+        async function startSession() {
+            const presetId = document.getElementById('presetSelect').value;
+            if (!presetId) return;
+            const response = await fetch('/api/sessions', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({preset_id:presetId})});
+            const state = await response.json();
+            if (!response.ok) {
+                document.getElementById('sessionState').innerHTML = `<div class="card-title" style="color:#ff3366">${escapeHtml(state.message || 'Could not start session.')}</div>`;
+                return;
+            }
+            activeSessionId = state.session_id;
+            renderSessionState(state);
+            connectSessionSocket();
+        }
+
+        function connectSessionSocket() {
+            if (!activeSessionId || typeof io === 'undefined') return;
+            if (sessionSocket) sessionSocket.disconnect();
+            sessionSocket = io();
+            sessionSocket.on('connect', () => sessionSocket.emit('join_session', {session_id: activeSessionId}, renderSessionState));
+            sessionSocket.on('session_state', state => {
+                if (state && state.session_id === activeSessionId) renderSessionState(state);
+            });
+        }
+
+        async function confirmConnection(from, to, accepted) {
+            if (!activeSessionId) return;
+            const response = await fetch(`/api/sessions/${activeSessionId}/confirmations`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({from, to, accepted})});
+            renderSessionState(await response.json());
+        }
+
+        function escapeHtml(value) {
+            const element = document.createElement('span');
+            element.textContent = String(value || '');
+            return element.innerHTML;
+        }
+
+        function renderSessionState(state) {
+            const target = document.getElementById('sessionState');
+            if (!target || !state) return;
+            const color = ({PASS:'#00ffcc',FAULT:'#ff3366',INDETERMINATE:'#ffcc00',INCOMPLETE:'#0088ff',REACQUIRING:'#ffcc00'})[state.status] || '#8b949e';
+            let html = `<div class="card-title" style="color:${color}">[${escapeHtml(state.status)}] ${escapeHtml(state.preset && state.preset.name)}</div><div class="card-desc">${escapeHtml(state.verification_note)}</div>`;
+            const next = state.next_action;
+            if (next) html += `<div class="card" style="margin-top:7px;border-left:3px solid ${color}"><div class="card-title">NEXT: ${escapeHtml(next.title)}</div><div class="card-desc">${escapeHtml(next.instruction)}</div><div class="card-desc" style="color:#8b949e">${escapeHtml(next.reason)}</div></div>`;
+            if (state.findings && state.findings.length) html += state.findings.slice(0,3).map(f => `<div class="card-desc" style="margin-top:5px;color:${f.severity === 'critical' ? '#ff3366' : '#ffcc00'}">${escapeHtml(f.code)}: ${escapeHtml(f.message)}</div>`).join('');
+            target.innerHTML = html;
+        }
+
+        function speakGuidance(text) {
+            if (!ttsEnabled || !text || !('speechSynthesis' in window)) return;
+            const now = Date.now();
+            // 15-second cooldown for same text to avoid annoying repetition
+            if (text === lastSpokenText && (now - lastSpokenTime) < 15000) return;
+            lastSpokenText = text;
+            lastSpokenTime = now;
+
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 0.95;  // Slightly slower for clarity
+            utterance.pitch = 1.0;
+            utterance.volume = 0.9;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        async function startPolling() {
+            while (true) {
+                try {
+                    const res = await fetch('/api/detections');
+                    if (res.ok) {
+                        const data = await res.json();
+                        updateUI(data);
+                    }
+                } catch (e) {}
+                if (activeSessionId && Date.now() - lastSessionPollAt > 400) {
+                    lastSessionPollAt = Date.now();
+                    fetch(`/api/sessions/${activeSessionId}/state`).then(r => r.ok ? r.json() : null).then(renderSessionState).catch(() => {});
+                }
+                await new Promise(r => setTimeout(r, 60)); // Fast refresh
+            }
+        }
+
+        function updateUI(data) {
+            const connected = data.camera_connected !== false;
+            document.getElementById('statusDot').className = connected ? 'dot active' : 'dot';
+            document.getElementById('statusText').innerText = connected ? 'Live Tracking' : 'Standby';
+
+            if (data.infer_ms) {
+                document.getElementById('inferDisplay').innerText = `Infer: ${data.infer_ms}ms`;
+            }
+            if (data.infer_fps) {
+                document.getElementById('fpsDisplay').innerText = `${data.infer_fps} FPS`;
+            }
+
+            const rep = data.verification || {};
+            const dets = data.detections || [];
+            
+            let hasMCU = dets.some(d => ['arduino_uno', 'arduino_nano', 'arduino_mega', 'esp32'].includes(d.class.toLowerCase()));
+            const pbTag = document.getElementById('powerBankTag');
+            if (rep.is_powered) {
+                pbTag.innerText = ' POWER: ACTIVE';
+                pbTag.style.color = '#00ffcc';
+                pbTag.style.borderColor = '#00ffcc';
+            } else if (hasMCU) {
+                pbTag.innerText = ' POWER: NOT CONNECTED';
+                pbTag.style.color = '#ff3366';
+                pbTag.style.borderColor = '#ff3366';
+            } else {
+                pbTag.innerText = ' POWER: --';
+                pbTag.style.color = '#7d8590';
+                pbTag.style.borderColor = '#30363d';
+            }
+
+            // VLM badge
+            const vlmBadge = document.getElementById('vlmBadge');
+            if (rep.vlm_analysis) {
+                const vs = rep.vlm_analysis.status;
+                const vid = rep.vlm_analysis._analysis_id || '';
+                if (vs === 'WORKING') {
+                    vlmBadge.innerText = `AI: OK #${vid}`;
+                    vlmBadge.style.color = '#00ffcc';
+                } else if (vs === 'HAS_ERRORS') {
+                    vlmBadge.innerText = `AI: ERR #${vid}`;
+                    vlmBadge.style.color = '#ff3366';
+                } else {
+                    vlmBadge.innerText = `AI: ... #${vid}`;
+                    vlmBadge.style.color = '#ffcc00';
+                }
+            }
+
+            if (arOverlay) {
+                arOverlay.updateData(dets, rep);
+            }
+
+            const banner = document.getElementById('arBanner');
+            const bTitle = document.getElementById('bannerTitle');
+            const bSol = document.getElementById('bannerSolution');
+            const errBox = document.getElementById('errorsContainer');
+
+            document.getElementById('circuitName').innerText = rep.circuit_name || 'Generic Circuit';
+            document.getElementById('mcuTag').innerText = rep.mcu_info || 'Unknown Board';
+            const evidenceTag = document.getElementById('evidenceTag');
+            if (rep.electrical_status === 'PASS') {
+                evidenceTag.innerText = 'Electrical proof: verified netlist';
+                evidenceTag.style.color = '#00ffcc';
+            } else {
+                evidenceTag.innerText = 'Electrical proof: visual estimate only';
+                evidenceTag.style.color = '#ffcc00';
+            }
+
+            if (rep.tutor_mode) {
+                banner.className = rep.status === 'PASS' ? 'status-banner ok' : 'status-banner warn';
+                
+                if (rep.current_step) {
+                    bTitle.innerText = '[TUTORIAL] ' + rep.current_step.title;
+                    bSol.innerText = '> ' + rep.current_step.desc;
+                    bSol.style.display = 'block';
+                    
+                    let stepsHtml = '';
+                    
+                    if (rep.completed_steps && rep.completed_steps.length > 0) {
+                        stepsHtml += rep.completed_steps.map(s => 
+                            `<div class="card ok-card" style="opacity: 0.8; padding: 8px;">
+                                <div class="card-title" style="color:#00ffcc;">DONE: ${s.title}</div>
+                            </div>`
+                        ).join('');
+                    }
+
+                    stepsHtml += `<div class="card warn-card">
+                        <div class="card-title"> CURRENT: ${rep.current_step.title}</div>
+                        <div class="card-desc">${rep.current_step.desc}</div>
+                    </div>`;
+
+                    if (rep.errors && rep.errors.length > 0) {
+                        stepsHtml += rep.errors.map(e => 
+                            `<div class="card fault-card" style="border-left: 4px solid #ff4444; margin-top: 10px;">
+                                <div class="card-title" style="color: #ff4444;">[!] ${e.message}</div>
+                                <div class="card-desc">${e.remedy}</div>
+                            </div>`
+                        ).join('');
+                    }
+                    
+                    if (rep.pending_steps && rep.pending_steps.length > 0) {
+                        stepsHtml += rep.pending_steps.map(s => 
+                            `<div class="card" style="opacity: 0.5; padding: 8px;">
+                                <div class="card-title" style="color:#8b949e"> ${s.title}</div>
+                            </div>`
+                        ).join('');
+                    }
+                    errBox.innerHTML = stepsHtml;
+
+                } else if (rep.status === 'PASS') {
+                    bTitle.innerText = '[VISUAL] NO PLACEMENT ISSUE FOUND';
+                    bSol.innerText = 'Electrical continuity is not yet proven; confirm the topology before powering the circuit.';
+                    bSol.style.display = 'block';
+                    errBox.innerHTML = `<div class="card ok-card">
+                        <div class="card-title"> VISUAL REVIEW COMPLETE</div>
+                        <div class="card-desc">Confirm the circuit netlist before treating it as electrically safe.</div>
+                    </div>`;
+                } else if (rep.errors && rep.errors.length > 0) {
+                    // ERRORS DETECTED but no tutor steps -- show the errors directly
+                    banner.className = 'status-banner fault';
+                    bTitle.innerText = '[!] ISSUES DETECTED';
+                    bSol.innerText = '> ' + rep.errors[0].remedy;
+                    bSol.style.display = 'block';
+                    errBox.innerHTML = rep.errors.map(e => 
+                        `<div class="card fault-card" style="border-left: 4px solid #ff4444; margin-top: 6px;">
+                            <div class="card-title" style="color: #ff4444;">[!] ${e.message}</div>
+                            <div class="card-desc">${e.remedy}</div>
+                        </div>`
+                    ).join('');
+                } else {
+                     bTitle.innerText = 'ANALYZING...';
+                     bSol.style.display = 'none';
+                     errBox.innerHTML = `<div class="card">
+                        <div class="card-title" style="color:#8b949e">Waiting for components...</div>
+                    </div>`;
+                }
+            } else {
+                if (rep.errors && rep.errors.length > 0) {
+                    banner.className = 'status-banner fault';
+                    bTitle.innerText = '[!] TOPOLOGY FAULT DETECTED';
+                    bSol.innerText = '> ' + (rep.errors[0].remedy || 'Check wiring diagram.');
+                    bSol.style.display = 'block';
+                    errBox.innerHTML = rep.errors.map(e => 
+                        `<div class="card fault-card">
+                            <div class="card-title"> ${e.message}</div>
+                            <div class="card-desc"> SOLUTION: ${e.remedy}</div>
+                        </div>`
+                    ).join('');
+                } else if (rep.warnings && rep.warnings.length > 0) {
+                    banner.className = 'status-banner warn';
+                    bTitle.innerText = '[!] SUB-OPTIMAL NODE';
+                    bSol.innerText = '> ' + (rep.warnings[0].remedy || 'Check connections.');
+                    bSol.style.display = 'block';
+                    errBox.innerHTML = rep.warnings.map(e => 
+                        `<div class="card warn-card">
+                            <div class="card-title"> ${e.message}</div>
+                            <div class="card-desc"> SOLUTION: ${e.remedy}</div>
+                        </div>`
+                    ).join('');
+                } else if (rep.status === 'PASS') {
+                    banner.className = 'status-banner ok';
+                    bTitle.innerText = '[OK] CIRCUIT VALIDATED';
+                    bSol.innerText = 'Graph solver found 0 errors. Circuit is correct and working.';
+                    bSol.style.display = 'block';
+                    errBox.innerHTML = 
+                        `<div class="card ok-card">
+                            <div class="card-title"> SOLVER STATE: PERFECT</div>
+                            <div class="card-desc">The circuit topology is correctly mapped. No shorts, breaks, or incorrect pins detected. It is safe to power.</div>
+                        </div>`;
+                } else {
+                    banner.className = 'status-banner';
+                    bTitle.innerText = 'ANALYZING...';
+                    bSol.style.display = 'none';
+                    errBox.innerHTML = `<div class="card"><div class="card-title" style="color:#8b949e">Waiting for components...</div></div>`;
+                }
+            }
+
+            const list = document.getElementById('componentsList');
+            if (dets.length === 0) {
+                list.innerHTML = '<div class="component-item"><span class="comp-name">No nodes detected</span></div>';
+            } else {
+                list.innerHTML = dets.map(d => {
+                    let label = d.class.replace('_', ' ').toUpperCase();
+                    if (d.resistance) label += ` [${d.resistance}]`;
+                    const conf = (d.confidence * 100).toFixed(1);
+                    return `
+                        <div class="component-item">
+                            <span class="comp-name">${label}</span>
+                            <span class="comp-conf">${conf}%</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // VLM AI Analysis Rendering
+            const vlmBox = document.getElementById('vlmContainer');
+            const vlm = rep.vlm_analysis;
+            if (vlm) {
+                let vlmHtml = '';
+                
+                // Metadata bar
+                const ts = vlm._timestamp || '';
+                const scanId = vlm._analysis_id || '';
+                const resolved = vlm._resolved_count || 0;
+                vlmHtml += `<div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.7rem; color:#586069;">
+                    <span>Scan #${scanId} at ${ts}</span>
+                    ${resolved > 0 ? `<span style="color:#00ffcc;">${resolved} fixed</span>` : ''}
+                </div>`;
+
+                // Circuit type + status badge
+                const statusColor = vlm.status === 'WORKING' ? '#00ffcc' : 
+                                   vlm.status === 'HAS_ERRORS' ? '#ff3366' : '#ffcc00';
+                const statusLabel = vlm.status === 'WORKING' ? 'VERIFIED' : 
+                                   vlm.status === 'HAS_ERRORS' ? 'ERRORS FOUND' : 'INCOMPLETE';
+                vlmHtml += `<div class="card" style="border-left: 3px solid ${statusColor}; margin-bottom: 8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div class="card-title" style="color: ${statusColor}; font-size: 0.95rem; margin-bottom:0;">${vlm.circuit_type || 'Analyzing...'}</div>
+                        <span style="font-size:0.65rem; padding:2px 8px; border-radius:2px; background:${statusColor}22; color:${statusColor}; font-weight:bold;">${statusLabel}</span>
+                    </div>
+                    <div class="card-desc" style="color: #c9d1d9; margin-top:4px;">${vlm.circuit_description || ''}</div>
+                </div>`;
+
+                // Circuit logic explanation
+                if (vlm.circuit_logic) {
+                    vlmHtml += `<div style="margin-bottom:8px; padding:8px 10px; background:rgba(0,150,255,0.05); border-left:2px solid #0088ff; border-radius:2px;">
+                        <div style="font-size:0.7rem; color:#0088ff; letter-spacing:0.5px; margin-bottom:4px;">HOW THIS CIRCUIT WORKS</div>
+                        <div style="font-size:0.78rem; color:#c9d1d9; line-height:1.4;">${vlm.circuit_logic}</div>
+                    </div>`;
+                }
+
+                // Topology paths
+                if (vlm.topology) {
+                    const t = vlm.topology;
+                    vlmHtml += `<div style="margin-bottom:8px; padding:6px 8px; background:rgba(0,255,204,0.03); border-radius:2px;">
+                        <div style="font-size:0.7rem; color:#00ffcc; letter-spacing:0.5px; margin-bottom:4px;">CIRCUIT TOPOLOGY</div>`;
+                    if (t.power_path) vlmHtml += `<div style="font-size:0.73rem; color:#ff6b6b; margin-bottom:3px;">PWR: ${t.power_path}</div>`;
+                    if (t.ground_path) vlmHtml += `<div style="font-size:0.73rem; color:#4ecdc4; margin-bottom:3px;">GND: ${t.ground_path}</div>`;
+                    if (t.signal_path) vlmHtml += `<div style="font-size:0.73rem; color:#ffe66d;">SIG: ${t.signal_path}</div>`;
+                    vlmHtml += `</div>`;
+                }
+
+                // Components found + YOLO missed
+                if (vlm.components_found && vlm.components_found.length > 0) {
+                    vlmHtml += `<div style="margin-bottom:8px; padding:6px 8px; background:rgba(0,255,204,0.03); border-radius:2px;">
+                        <div style="font-size:0.7rem; color:#00ffcc; letter-spacing:0.5px; margin-bottom:4px;">COMPONENTS (${vlm.components_found.length})</div>
+                        <div style="font-size:0.75rem; color:#8b949e;">${vlm.components_found.join(' / ')}</div>`;
+                    if (vlm.components_yolo_missed && vlm.components_yolo_missed.length > 0) {
+                        vlmHtml += `<div style="font-size:0.7rem; color:#ffcc00; margin-top:4px;">AI-only (no YOLO box): ${vlm.components_yolo_missed.join(', ')}</div>`;
+                    }
+                    vlmHtml += `</div>`;
+                }
+
+                // Safety warnings
+                if (vlm.safety_warnings && vlm.safety_warnings.length > 0) {
+                    vlmHtml += vlm.safety_warnings.map(w =>
+                        `<div style="padding:6px 8px; margin-bottom:4px; background:rgba(255,51,102,0.08); border-left:2px solid #ff3366; border-radius:2px; font-size:0.75rem; color:#ff6b6b;">${w}</div>`
+                    ).join('');
+                }
+
+                // Errors with WHY explanation
+                if (vlm.errors && vlm.errors.length > 0) {
+                    vlmHtml += vlm.errors.map(err => {
+                        const sevColor = err.severity === 'CRITICAL' ? '#ff3366' : 
+                                        err.severity === 'WARNING' ? '#ffcc00' : '#00ffcc';
+                        const sevBg = err.severity === 'CRITICAL' ? 'rgba(255,51,102,0.05)' : 
+                                     err.severity === 'WARNING' ? 'rgba(255,204,0,0.05)' : 'rgba(0,255,204,0.05)';
+                        let html = `<div class="card" style="border-left: 3px solid ${sevColor}; margin-bottom: 6px; background: ${sevBg};">
+                            <div class="card-title" style="color: ${sevColor}; font-size: 0.8rem;">[${err.severity}] ${err.issue}</div>
+                            <div class="card-desc" style="color: #8b949e; font-size: 0.73rem;">Component: ${err.component}</div>
+                            <div class="card-desc" style="color: #e6edf3; font-size: 0.8rem; margin-top: 4px; padding: 4px 6px; background: rgba(255,255,255,0.03); border-radius: 2px;">Fix: ${err.fix}</div>`;
+                        if (err.why) {
+                            html += `<div class="card-desc" style="color: #586069; font-size: 0.72rem; margin-top: 4px; font-style: italic;">Why: ${err.why}</div>`;
+                        }
+                        html += `</div>`;
+                        return html;
+                    }).join('');
+                }
+
+                // Fix steps with REASON
+                if (vlm.fix_steps && vlm.fix_steps.length > 0) {
+                    vlmHtml += '<div style="margin-top: 8px; border-top: 1px solid rgba(0,255,204,0.15); padding-top: 8px;">';
+                    vlmHtml += '<div style="font-size: 0.75rem; color: #00ffcc; letter-spacing: 1px; margin-bottom: 6px;">FIX STEPS</div>';
+                    vlmHtml += vlm.fix_steps.map(step => {
+                        const isDone = step.done;
+                        const stepColor = isDone ? '#00ffcc' : '#e6edf3';
+                        const stepBg = isDone ? 'rgba(0,255,204,0.05)' : 'rgba(255,255,255,0.02)';
+                        const icon = isDone ? 'DONE' : `STEP ${step.step}`;
+                        let html = `<div style="padding: 8px 10px; margin-bottom: 4px; background: ${stepBg}; border-radius: 2px; border-left: 2px solid ${isDone ? '#00ffcc' : '#30363d'};">
+                            <div style="color: ${stepColor}; font-size: 0.82rem; font-weight: bold;">[${icon}] ${step.title}</div>
+                            <div style="color: #8b949e; font-size: 0.78rem; margin-top: 3px;">${step.instruction}</div>`;
+                        if (step.reason) {
+                            html += `<div style="color: #586069; font-size: 0.7rem; margin-top: 2px; font-style: italic;">Reason: ${step.reason}</div>`;
+                        }
+                        html += `</div>`;
+                        return html;
+                    }).join('');
+                    vlmHtml += '</div>';
+                }
+
+                // Notes
+                if (vlm.notes) {
+                    vlmHtml += `<div style="margin-top: 6px; padding: 6px 8px; font-size: 0.75rem; color: #8b949e; border-top: 1px solid rgba(0,255,204,0.1);">
+                        ${vlm.notes}
+                    </div>`;
+                }
+
+                // Correct wiring reference
+                if (vlm.correct_wiring) {
+                    vlmHtml += `<div style="margin-top: 8px; border-top: 1px solid rgba(0,136,255,0.2); padding-top: 8px;">`;
+                    vlmHtml += `<div style="font-size: 0.75rem; color: #0088ff; letter-spacing: 1px; margin-bottom: 6px;">CORRECT WIRING REFERENCE</div>`;
+                    if (vlm.correct_wiring.description) {
+                        vlmHtml += `<div style="font-size: 0.75rem; color: #c9d1d9; margin-bottom: 6px; line-height:1.3;">${vlm.correct_wiring.description}</div>`;
+                    }
+                    if (vlm.correct_wiring.connections && vlm.correct_wiring.connections.length > 0) {
+                        vlmHtml += vlm.correct_wiring.connections.map(c =>
+                            `<div style="padding: 4px 8px; margin-bottom: 2px; background: rgba(0,136,255,0.04); border-left: 2px solid #0088ff33; font-size: 0.73rem; color: #8b949e;">${c}</div>`
+                        ).join('');
+                    }
+                    vlmHtml += `</div>`;
+                }
+
+                // AI Answer to user question
+                if (vlm.answer) {
+                    vlmHtml += `<div style="margin-top: 8px; padding: 10px; background: rgba(0,136,255,0.08); border-left: 3px solid #0088ff; border-radius: 2px;">
+                        <div style="font-size: 0.7rem; color: #0088ff; letter-spacing: 0.5px; margin-bottom: 4px;">AI ANSWER</div>
+                        <div style="font-size: 0.8rem; color: #e6edf3; line-height: 1.4;">${vlm.answer}</div>
+                    </div>`;
+                }
+
+                // Improvement suggestions
+                if (vlm.improvement_suggestions && vlm.improvement_suggestions.length > 0) {
+                    vlmHtml += `<div style="margin-top: 8px; border-top: 1px solid rgba(255,204,0,0.15); padding-top: 8px;">`;
+                    vlmHtml += `<div style="font-size: 0.7rem; color: #ffcc00; letter-spacing: 0.5px; margin-bottom: 4px;">IMPROVEMENT IDEAS</div>`;
+                    vlmHtml += vlm.improvement_suggestions.map(s =>
+                        `<div style="padding: 4px 8px; margin-bottom: 2px; font-size: 0.73rem; color: #8b949e; border-left: 2px solid #ffcc0033;">${s}</div>`
+                    ).join('');
+                    vlmHtml += `</div>`;
+                }
+
+                // Success
+                if (vlm.status === 'WORKING') {
+                    vlmHtml += `<div class="card ok-card" style="margin-top: 8px; text-align: center;">
+                        <div class="card-title" style="font-size: 1rem;">CIRCUIT VERIFIED</div>
+                        <div class="card-desc">All connections correct. Circuit should function as intended.</div>
+                    </div>`;
+                    speakGuidance('Circuit verified. All connections are correct.');
+                } else if (vlm.errors && vlm.errors.length > 0) {
+                    if (!window._lastSpokenVlmId || window._lastSpokenVlmId !== vlm._analysis_id) {
+                        window._lastSpokenVlmId = vlm._analysis_id;
+                        speakGuidance(vlm.errors[0].fix);
+                    }
+                }
+
+                vlmBox.innerHTML = vlmHtml;
+            } else {
+                vlmBox.innerHTML = '<div class="card"><div class="card-title" style="color:#8b949e">Waiting for AI analysis...</div></div>';
+            }
+        }
+    </script>
+</body>
+</html>

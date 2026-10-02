@@ -1,0 +1,1 @@
+{"preset_id":"voltage_divider","fault_class":"bridged_signals","frames":[],"confirmations":[{"from":"arduino:5V","to":"arduino:A0","accepted":true,"wire_color":"orange"}],"expected_status":"FAULT"}

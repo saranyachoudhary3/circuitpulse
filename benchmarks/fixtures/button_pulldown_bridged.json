@@ -1,0 +1,1 @@
+{"preset_id":"button_pulldown","fault_class":"bridged_signals","frames":[],"confirmations":[{"from":"button:1","to":"button:2","accepted":true,"wire_color":"blue"}],"expected_status":"FAULT"}

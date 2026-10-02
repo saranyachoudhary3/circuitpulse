@@ -1,0 +1,1 @@
+{"preset_id":"motor_driver","fault_class":"extra_connection_wrong_pin","frames":[],"confirmations":[{"from":"arduino:D4","to":"driver:ENA","accepted":true,"wire_color":"blue"}],"expected_status":"FAULT"}

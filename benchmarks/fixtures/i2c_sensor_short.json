@@ -1,0 +1,1 @@
+{"preset_id":"i2c_sensor","fault_class":"direct_short","frames":[],"confirmations":[{"from":"arduino:3V3","to":"arduino:GND","accepted":true,"wire_color":"red"}],"expected_status":"FAULT"}

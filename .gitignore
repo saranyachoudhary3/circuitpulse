@@ -1,6 +1,7 @@
-﻿# Secrets & Environment
+# Secrets & Environment
 .env
 secrets.txt
+gemini_key.txt
 yolo-env/
 
 # Python cache
@@ -23,6 +24,10 @@ circuit-elements-*/
 Resistor-Detection-*/
 Electronics-Components-*/
 yolov8-pcb-defects-*/
+Merged-Dataset/
+PCB-1/
+snapshots/
+.agents/
 
 # Training runs, caches & raw weights
 runs/
@@ -40,3 +45,8 @@ pi_transfer/models/PRODUCTION_*.pt
 pi_transfer/models/*_ncnn_model/
 pi_transfer/models_ncnn.zip
 pi_transfer/models/*.zip
+
+# Locally built calibration artifacts and GPU-specific model engines
+artifacts/
+models/*.engine
+models/*.manifest.json

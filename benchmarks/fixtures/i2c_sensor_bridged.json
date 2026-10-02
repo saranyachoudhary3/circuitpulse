@@ -1,0 +1,1 @@
+{"preset_id":"i2c_sensor","fault_class":"bridged_signals","frames":[],"confirmations":[{"from":"arduino:SDA","to":"arduino:SCL","accepted":true,"wire_color":"green"}],"expected_status":"FAULT"}

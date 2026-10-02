@@ -1,0 +1,1 @@
+{"preset_id":"pwm_rgb","fault_class":"bridged_signals","frames":[],"confirmations":[{"from":"arduino:D9","to":"arduino:D10","accepted":true,"wire_color":"yellow"}],"expected_status":"FAULT"}

@@ -1,0 +1,1 @@
+{"preset_id":"voltage_divider","fault_class":"extra_connection_wrong_pin","frames":[],"confirmations":[{"from":"arduino:A1","to":"r1:2","accepted":true,"wire_color":"yellow"}],"expected_status":"FAULT"}

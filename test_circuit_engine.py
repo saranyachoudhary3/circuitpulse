@@ -2,11 +2,11 @@ import sys
 import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "pi_transfer"))
-from circuit_engine import CircuitEngine
+from circuit_engine import CircuitSolver
 
 
 def run_tests():
-    engine = CircuitEngine()
+    engine = CircuitSolver()
     print("Testing 100% Automatic Circuit Logic & Verification Engine...\n")
 
     valid_detections = [
@@ -27,7 +27,7 @@ def run_tests():
     pin7_detections = [
         {"class": "arduino_uno", "confidence": 0.85, "bbox": {"x1": 100, "y1": 100, "x2": 300, "y2": 400}},
         {"class": "breadboard", "confidence": 0.90, "bbox": {"x1": 350, "y1": 100, "x2": 600, "y2": 400}},
-        {"class": "resistor", "confidence": 0.75, "ohms": 220, "resistance": "220Ω ±5%", "bbox": {"x1": 400, "y1": 200, "x2": 450, "y2": 250}},
+        {"class": "resistor", "confidence": 0.75, "ohms": 220, "resistance": "220 5%", "bbox": {"x1": 400, "y1": 200, "x2": 450, "y2": 250}},
         {"class": "led", "confidence": 0.80, "bbox": {"x1": 460, "y1": 200, "x2": 480, "y2": 220}},
         {"class": "wire", "confidence": 0.75, "bbox": {"x1": 245, "y1": 120, "x2": 400, "y2": 200}},
     ]
@@ -48,7 +48,7 @@ def run_tests():
     pin15_detections = [
         {"class": "arduino_uno", "confidence": 0.85, "bbox": {"x1": 100, "y1": 100, "x2": 300, "y2": 400}},
         {"class": "breadboard", "confidence": 0.90, "bbox": {"x1": 350, "y1": 100, "x2": 600, "y2": 400}},
-        {"class": "resistor", "confidence": 0.75, "ohms": 220, "resistance": "220Ω ±5%", "bbox": {"x1": 400, "y1": 200, "x2": 450, "y2": 250}},
+        {"class": "resistor", "confidence": 0.75, "ohms": 220, "resistance": "220 5%", "bbox": {"x1": 400, "y1": 200, "x2": 450, "y2": 250}},
         {"class": "led", "confidence": 0.80, "bbox": {"x1": 460, "y1": 200, "x2": 480, "y2": 220}},
         {"class": "wire", "confidence": 0.85, "bbox": {"x1": 130, "y1": 120, "x2": 400, "y2": 200}},
     ]
@@ -105,7 +105,7 @@ def run_tests():
     wrong_resistor_value = [
         {"class": "arduino_uno", "confidence": 0.85, "bbox": {"x1": 100, "y1": 100, "x2": 300, "y2": 400}},
         {"class": "breadboard", "confidence": 0.90, "bbox": {"x1": 350, "y1": 100, "x2": 600, "y2": 400}},
-        {"class": "resistor", "confidence": 0.80, "ohms": 10000, "resistance": "10kΩ ±5%", "bbox": {"x1": 120, "y1": 110, "x2": 380, "y2": 150}},
+        {"class": "resistor", "confidence": 0.80, "ohms": 10000, "resistance": "10k 5%", "bbox": {"x1": 120, "y1": 110, "x2": 380, "y2": 150}},
         {"class": "led", "confidence": 0.80, "bbox": {"x1": 380, "y1": 150, "x2": 400, "y2": 180}},
     ]
     report5 = engine.verify(wrong_resistor_value)
@@ -136,7 +136,7 @@ def run_tests():
     corrected_wire_detections = [
         {"class": "arduino_uno", "confidence": 0.85, "bbox": {"x1": 100, "y1": 100, "x2": 300, "y2": 400}},
         {"class": "breadboard", "confidence": 0.90, "bbox": {"x1": 350, "y1": 100, "x2": 600, "y2": 400}},
-        {"class": "resistor", "confidence": 0.75, "ohms": 220, "resistance": "220Ω ±5%", "bbox": {"x1": 400, "y1": 200, "x2": 450, "y2": 250}},
+        {"class": "resistor", "confidence": 0.75, "ohms": 220, "resistance": "220 5%", "bbox": {"x1": 400, "y1": 200, "x2": 450, "y2": 250}},
         {"class": "led", "confidence": 0.80, "bbox": {"x1": 460, "y1": 200, "x2": 480, "y2": 220}},
         {"class": "wire", "confidence": 0.85, "bbox": {"x1": 135, "y1": 140, "x2": 400, "y2": 200}},
     ]

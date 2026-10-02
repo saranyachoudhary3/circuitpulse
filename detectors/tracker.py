@@ -1,5 +1,5 @@
-class BoxSmoother:
-    def __init__(self, alpha=0.65, iou_thresh=0.38, max_missing=2):
+class Tracker:
+    def __init__(self, alpha=0.65, iou_thresh=0.38, max_missing=3):
         self.alpha = alpha
         self.iou_thresh = iou_thresh
         self.max_missing = max_missing
@@ -48,6 +48,9 @@ class BoxSmoother:
                 }
                 track["confidence"] = round(0.7 * new_box["confidence"] + 0.3 * track["confidence"], 3)
                 track["missing"] = 0
+                for key in new_box:
+                    if key not in ("class", "confidence", "bbox"):
+                        track[key] = new_box[key]
             else:
                 track["missing"] += 1
 
@@ -57,20 +60,28 @@ class BoxSmoother:
 
         for i, box in enumerate(detected_boxes):
             if i not in matched_box_indices:
-                self.tracks[self.next_id] = {
+                new_track = {
                     "class": box["class"],
                     "confidence": box["confidence"],
                     "bbox": dict(box["bbox"]),
                     "missing": 0,
                 }
+                for key in box:
+                    if key not in ("class", "confidence", "bbox"):
+                        new_track[key] = box[key]
+                self.tracks[self.next_id] = new_track
                 self.next_id += 1
 
         output = []
         for t_id, track in self.tracks.items():
             if track["missing"] == 0:
-                output.append({
+                entry = {
                     "class": track["class"],
                     "confidence": track["confidence"],
                     "bbox": track["bbox"],
-                })
+                }
+                for key in track:
+                    if key not in ("class", "confidence", "bbox", "missing"):
+                        entry[key] = track[key]
+                output.append(entry)
         return output

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "modules": [
+    {"id":"arduino_uno","display_name":"Arduino Uno","fiducial_id":"CP-UNO-R3","voltage":["5V","3V3"],"pins":[{"name":"5V","role":"power"},{"name":"3V3","role":"power"},{"name":"GND","role":"ground"},{"name":"D13","role":"gpio"},{"name":"A0","role":"analog"},{"name":"SDA","role":"i2c_data"},{"name":"SCL","role":"i2c_clock"}]},
+    {"id":"arduino_nano","display_name":"Arduino Nano","fiducial_id":"CP-NANO-V3","voltage":["5V","3V3"],"pins":[{"name":"5V","role":"power"},{"name":"GND","role":"ground"},{"name":"D13","role":"gpio"},{"name":"A0","role":"analog"},{"name":"A4/SDA","role":"i2c_data"},{"name":"A5/SCL","role":"i2c_clock"}]},
+    {"id":"esp32_devkit","display_name":"ESP32 DevKit","fiducial_id":"CP-ESP32-DEVKIT","voltage":["3V3"],"pins":[{"name":"3V3","role":"power"},{"name":"GND","role":"ground"},{"name":"GPIO21/SDA","role":"i2c_data"},{"name":"GPIO22/SCL","role":"i2c_clock"},{"name":"GPIO34","role":"analog"}]},
+    {"id":"dht11","display_name":"DHT11/DHT22","fiducial_id":"CP-DHT","voltage":["3V3","5V"],"pins":[{"name":"VCC","role":"power"},{"name":"DATA","role":"digital_data"},{"name":"GND","role":"ground"}]},
+    {"id":"hc_sr04","display_name":"HC-SR04 Ultrasonic","fiducial_id":"CP-HCSR04","voltage":["5V"],"pins":[{"name":"VCC","role":"power"},{"name":"TRIG","role":"digital_output"},{"name":"ECHO","role":"digital_input"},{"name":"GND","role":"ground"}]},
+    {"id":"hc_sr501","display_name":"HC-SR501 PIR","fiducial_id":"CP-HCSR501","voltage":["5V"],"pins":[{"name":"VCC","role":"power"},{"name":"OUT","role":"digital_output"},{"name":"GND","role":"ground"}]},
+    {"id":"soil_moisture","display_name":"Soil Moisture Module","fiducial_id":"CP-SOIL","voltage":["3V3","5V"],"pins":[{"name":"VCC","role":"power"},{"name":"GND","role":"ground"},{"name":"AO","role":"analog_output"},{"name":"DO","role":"digital_output"}]},
+    {"id":"flame_sensor","display_name":"Flame Sensor Module","fiducial_id":"CP-FLAME","voltage":["3V3","5V"],"pins":[{"name":"VCC","role":"power"},{"name":"GND","role":"ground"},{"name":"AO","role":"analog_output"},{"name":"DO","role":"digital_output"}]},
+    {"id":"i2c_sensor","display_name":"BME280/MPU6050 I2C Sensor","fiducial_id":"CP-I2C-SENSOR","voltage":["3V3","5V"],"pins":[{"name":"VCC","role":"power"},{"name":"GND","role":"ground"},{"name":"SDA","role":"i2c_data"},{"name":"SCL","role":"i2c_clock"}]},
+    {"id":"ssd1306","display_name":"SSD1306 I2C OLED","fiducial_id":"CP-OLED","voltage":["3V3","5V"],"pins":[{"name":"VCC","role":"power"},{"name":"GND","role":"ground"},{"name":"SDA","role":"i2c_data"},{"name":"SCL","role":"i2c_clock"}]},
+    {"id":"sg90_servo","display_name":"SG90 Servo","fiducial_id":"CP-SG90","voltage":["5V"],"pins":[{"name":"VCC","role":"power"},{"name":"GND","role":"ground"},{"name":"SIG","role":"pwm_input"}]},
+    {"id":"relay_1ch","display_name":"Single Channel Relay","fiducial_id":"CP-RELAY-1CH","voltage":["5V"],"pins":[{"name":"VCC","role":"power"},{"name":"GND","role":"ground"},{"name":"IN","role":"digital_input"}]},
+    {"id":"motor_driver","display_name":"L298N/DRV8833 Motor Driver","fiducial_id":"CP-MOTOR-DRV","voltage":["5V"],"pins":[{"name":"VCC","role":"power"},{"name":"GND","role":"ground"},{"name":"IN1","role":"digital_input"},{"name":"IN2","role":"digital_input"},{"name":"ENA","role":"pwm_input"},{"name":"OUT1","role":"motor_output"},{"name":"OUT2","role":"motor_output"}]},
+    {"id":"rc522","display_name":"RC522 SPI RFID","fiducial_id":"CP-RC522","voltage":["3V3"],"pins":[{"name":"3V3","role":"power"},{"name":"GND","role":"ground"},{"name":"SDA/SS","role":"spi_select"},{"name":"SCK","role":"spi_clock"},{"name":"MOSI","role":"spi_mosi"},{"name":"MISO","role":"spi_miso"}]}
+  ]
+}

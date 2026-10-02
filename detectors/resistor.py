@@ -1,4 +1,4 @@
-﻿import cv2
+import cv2
 import numpy as np
 
 COLOR_DIGITS = {
@@ -57,12 +57,12 @@ def classify_pixel_color(bgr):
     # Red covers hue 0-10 and 160-180
     if (h < 10 or h > 165) and s > 48 and v > 40:
         return "red"
+    if 8 <= h <= 20 and v > 150 and s > 80:
+        return "orange"
+    if 18 <= h <= 28 and s > 35 and v > 120:
+        return "gold"
     if 8 <= h <= 25 and v <= 150 and s > 30:
         return "brown"
-    if 8 <= h <= 20 and v > 120 and s > 80:
-        return "orange"
-    if 18 <= h <= 28 and s > 35 and v > 90:
-        return "gold"
     if 28 < h <= 38 and s > 60 and v > 115:
         return "yellow"
     if 38 < h <= 85 and s > 50:
@@ -84,15 +84,15 @@ def snap_to_e12(val):
 
 def format_ohms(ohms, tol="5%"):
     if ohms < 1000:
-        formatted = f"{int(ohms)}Ω"
+        formatted = f"{int(ohms)}"
     elif ohms < 1000000:
         val = ohms / 1000.0
-        formatted = f"{val:g}kΩ"
+        formatted = f"{val:g}k"
     else:
         val = ohms / 1000000.0
-        formatted = f"{val:g}MΩ"
+        formatted = f"{val:g}M"
 
-    return f"{formatted} ±{tol}", formatted
+    return f"{formatted} {tol}", formatted
 
 
 class ResistorDecoder:
@@ -115,6 +115,11 @@ class ResistorDecoder:
 
         if body.shape[0] < 3 or body.shape[1] < 8:
             return None
+
+        lab = cv2.cvtColor(body, cv2.COLOR_BGR2LAB)
+        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(4, 4))
+        lab[:, :, 0] = clahe.apply(lab[:, :, 0])
+        body = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
 
         profile = np.median(body, axis=0)
         column_colors = [classify_pixel_color(col) for col in profile]
@@ -159,11 +164,15 @@ class ResistorDecoder:
             snapped = snap_to_e12(raw_ohms)
 
             full_label, short_label = format_ohms(snapped, tol)
+            band_widths = [c[1] for c in clusters]
+            avg_width = sum(band_widths) / len(band_widths) if band_widths else 0
+            decode_confidence = min(1.0, avg_width / max(8, len(column_colors) * 0.08))
             return {
                 "ohms": snapped,
                 "formatted": full_label,
                 "raw_value": short_label,
-                "bands": bands
+                "bands": bands,
+                "decode_confidence": round(decode_confidence, 2)
             }
 
         return None

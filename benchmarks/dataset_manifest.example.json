@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "dataset_id": "replace-with-real-capture-batch-id",
+  "capture_profile": {
+    "camera_id": "fixed-overhead-camera-serial",
+    "resolution": "1920x1080",
+    "fps": 60,
+    "calibration_mat_id": "aruco-mat-revision",
+    "lighting_profile": "diffuse-locked-exposure"
+  },
+  "annotation_coverage": [
+    "components", "module_ids", "terminal_polygons", "breadboard_rows_rails",
+    "wire_masks", "wire_endpoints", "wire_colors", "resistor_values", "polarity", "faults"
+  ],
+  "annotation_counts": {
+    "components": 1,
+    "module_ids": 1,
+    "terminal_polygons": 1,
+    "breadboard_rows_rails": 1,
+    "wire_masks": 1,
+    "wire_endpoints": 1,
+    "wire_colors": 1,
+    "resistor_values": 1,
+    "polarity": 1,
+    "faults": 1
+  },
+  "supported_presets": ["arduino_d13_led"],
+  "splits": {
+    "train": [{"sample_id": "replace-train-001", "assembly_session_id": "assembly-a", "frame_path": "captures/train-001.png", "annotation_path": "annotations/train-001.json", "frame_sha256": "REPLACE_WITH_FRAME_SHA256", "annotation_sha256": "REPLACE_WITH_ANNOTATION_SHA256"}],
+    "validation": [{"sample_id": "replace-validation-001", "assembly_session_id": "assembly-b", "frame_path": "captures/validation-001.png", "annotation_path": "annotations/validation-001.json", "frame_sha256": "REPLACE_WITH_FRAME_SHA256", "annotation_sha256": "REPLACE_WITH_ANNOTATION_SHA256"}],
+    "test": [{"sample_id": "replace-test-001", "assembly_session_id": "assembly-c", "frame_path": "captures/test-001.png", "annotation_path": "annotations/test-001.json", "frame_sha256": "REPLACE_WITH_FRAME_SHA256", "annotation_sha256": "REPLACE_WITH_ANNOTATION_SHA256"}]
+  }
+}
