@@ -474,6 +474,42 @@ def api_autofocus():
         pass
     return jsonify({"status": "ok", "action": "focus_triggered"})
 
+@app.route("/api/scan-frame", methods=["POST"])
+def scan_frame():
+    file = request.files.get("frame")
+    if not file:
+        return jsonify({"error": "no frame uploaded"}), 400
+
+    data = file.read()
+    nparr = np.frombuffer(data, np.uint8)
+    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if frame is None:
+        return jsonify({"error": "could not decode image"}), 400
+
+    if not (model_main and model_passives):
+        return jsonify({"error": "models not loaded yet"}), 503
+
+    h, w = frame.shape[:2]
+    d_pass = run_inference(model_passives, frame)
+    d_main_raw = run_inference(model_main, frame)
+    d_main = [b for b in d_main_raw if b["class"].lower() in {"arduino_uno", "arduino_nano", "arduino_mega", "esp32", "breadboard", "led"}]
+    merged = deduplicate_and_merge_wires(d_pass + d_main)
+    detections = filter_detections(merged, w, h, full_frame=frame)
+
+    for d in detections:
+        if d["class"].lower() == "resistor":
+            bbox = d["bbox"]
+            rx1 = max(0, bbox["x1"]); ry1 = max(0, bbox["y1"])
+            rx2 = min(w, bbox["x2"]); ry2 = min(h, bbox["y2"])
+            if (rx2 - rx1) >= 25 and (ry2 - ry1) >= 10:
+                crop = frame[ry1:ry2, rx1:rx2]
+                info = resistor_decoder.decode(crop)
+                if info:
+                    d["resistance"] = info["formatted"]
+
+    report = circuit_engine.verify(detections, frame_width=w, frame_height=h)
+
+    return jsonify({"success": True, "detections": detections, "verification": report})
 
 def main():
     load_dual_models()
