@@ -16,6 +16,8 @@ class CircuitIRError(ValueError):
 
 
 class _UnionFind:
+    POWER_NETS = frozenset({'GND', 'gnd', 'VCC', 'vcc', '5V', '5v', '3V3', '3v3', 'VBUS', 'VIN', 'GROUND'})
+
     def __init__(self):
         self.parent: dict[str, str] = {}
 
@@ -28,7 +30,11 @@ class _UnionFind:
     def union(self, first: str, second: str) -> None:
         first_root, second_root = self.find(first), self.find(second)
         if first_root != second_root:
-            self.parent[second_root] = first_root
+            # Prefer well-known power net names as canonical roots
+            if second_root in self.POWER_NETS and first_root not in self.POWER_NETS:
+                self.parent[first_root] = second_root
+            else:
+                self.parent[second_root] = first_root
 
 
 @dataclass(frozen=True)
@@ -74,6 +80,8 @@ class CircuitIR:
         for wire in wires:
             if not isinstance(wire, dict) or not all(isinstance(wire.get(key), str) and wire[key] for key in ("from", "to")):
                 raise CircuitIRError("Every wire needs non-empty from and to net names.")
+            if wire["from"] == wire["to"]:
+                continue  # Skip degenerate self-loop wires
             self._nets.union(wire["from"], wire["to"])
         self.requirements = self._objects(payload.get("requirements", []), "requirements")
         self.measurements = payload.get("measurements", {})

@@ -42,7 +42,7 @@ class ADCAnalyzer:
                         findings.append(self._finding("ADC_CODE_INVALID", "error", "Captured ADC code is outside the configured resolution range.",
                                                       {"channel": channel, "raw_code": raw, "max_code": maximum_code}))
                     else:
-                        voltage = reference * raw / maximum_code
+                        voltage = reference * raw / (1 << resolution)
                         expected = rule.get("expected_voltage_range_v")
                         if expected is not None:
                             expected_min, expected_max = self._range(rule, "expected_voltage_range_v")

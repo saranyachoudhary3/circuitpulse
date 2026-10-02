@@ -1,4 +1,4 @@
-﻿import os
+import os
 import time
 import base64
 import threading
@@ -15,8 +15,8 @@ except ImportError:
         pass
 from ultralytics import YOLO
 
-from circuit import CircuitEngine
-from tracker import BoxSmoother
+from circuit import CircuitSolver
+from tracker import Tracker
 from resistor import ResistorDecoder
 
 app = Flask(__name__)
@@ -24,22 +24,31 @@ CORS(app)
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 models_dir = os.path.join(base_dir, "models")
-camera_url = "http://192.0.0.4:8080/video"
 port = 5000
 
-# Tuned baseline confidence thresholds
-CONF_DEFAULT = 0.35
-CONF_RESISTOR = 0.32
-CONF_BOARD = 0.50
-CONF_WIRE = 0.35
-IMG_SIZE = 416
+def _parse_camera_source():
+    src = os.environ.get("CAMERA_SOURCE", "0")
+    if src.startswith("http://") or src.startswith("rtsp://"):
+        return src
+    try:
+        return int(src)
+    except ValueError:
+        return src
+
+camera_source = _parse_camera_source()
+
+BOARD_MIN_CONF = 0.55
+CONF_DEFAULT = 0.40
+CONF_RESISTOR = 0.40
+CONF_BOARD = 0.55
+CONF_WIRE = 0.42
+IMG_SIZE = 640
 MAX_DETECTIONS = 35
 FRAME_WIDTH = 640
 MIN_BOX_AREA = 35
 MAX_BOX_RATIO = 0.95
 IOU_THRESHOLD = 0.30
 
-# Strict whitelist: ONLY actual circuit components, zero tablecloth noise
 ALLOWED_CLASSES = {
     "arduino_uno", "arduino_nano", "arduino_mega", "esp32", "breadboard",
     "resistor", "wire", "led"
@@ -60,9 +69,9 @@ active_mode = "all"
 model_main = None
 model_passives = None
 
-box_smoother = BoxSmoother(alpha=0.65, iou_thresh=0.38, max_missing=2)
+box_smoother = Tracker(alpha=0.15, iou_thresh=0.25, max_missing=5)
 resistor_decoder = ResistorDecoder()
-circuit_engine = CircuitEngine()
+circuit_engine = CircuitSolver()
 
 latest_verification_report = {
     "status": "PASS",
@@ -88,9 +97,10 @@ last_resistor_speak_time = 0
 
 def trigger_phone_autofocus():
     try:
-        base_url = camera_url.rsplit('/', 1)[0]
-        req = urllib.request.Request(f"{base_url}/focus", headers={'User-Agent': 'Mozilla/5.0'})
-        urllib.request.urlopen(req, timeout=1.0)
+        if isinstance(camera_source, str) and camera_source.startswith("http"):
+            base_url = camera_source.rsplit('/', 1)[0]
+            req = urllib.request.Request(f"{base_url}/focus", headers={'User-Agent': 'Mozilla/5.0'})
+            urllib.request.urlopen(req, timeout=1.0)
     except Exception:
         pass
 
@@ -391,12 +401,22 @@ def draw_hud(frame, detections, verification_report, fps_val):
 
 def capture_loop():
     global latest_frame, camera_connected
-    print(f"Connecting to: {camera_url}")
+    is_usb = isinstance(camera_source, int) or (isinstance(camera_source, str) and camera_source.startswith("/dev"))
+    src_label = f"USB device {camera_source}" if is_usb else camera_source
+    print(f"Camera source: {src_label}")
 
     while True:
         try:
-            cap = cv2.VideoCapture(camera_url, cv2.CAP_FFMPEG)
-            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            if is_usb:
+                cap = cv2.VideoCapture(camera_source, cv2.CAP_V4L2)
+                cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+                cap.set(cv2.CAP_PROP_FPS, 30)
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            else:
+                cap = cv2.VideoCapture(camera_source, cv2.CAP_FFMPEG)
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
             if not cap.isOpened():
                 camera_connected = False
@@ -574,7 +594,7 @@ def get_standby_frame():
     canvas[:] = (26, 22, 18)
     cv2.putText(canvas, "CAMERA DISCONNECTED", (int(FRAME_WIDTH / 2 - 170), 230),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 100, 255), 2, cv2.LINE_AA)
-    cv2.putText(canvas, f"Target: {camera_url}", (int(FRAME_WIDTH / 2 - 150), 270),
+    cv2.putText(canvas, f"Target: {camera_source}", (int(FRAME_WIDTH / 2 - 150), 270),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.50, (160, 160, 160), 1, cv2.LINE_AA)
     cv2.putText(canvas, "Keep phone screen active in IP Webcam", (int(FRAME_WIDTH / 2 - 180), 310),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (120, 120, 120), 1, cv2.LINE_AA)

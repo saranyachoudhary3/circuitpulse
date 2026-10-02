@@ -1,0 +1,15 @@
+[Unit]
+Description=CircuitPulse AR Production Backend
+After=network.target
+
+[Service]
+Type=simple
+User=ayushman
+WorkingDirectory=/home/ayushman/circuit_pulse
+# Modify this to match the actual phone IP you plan to use in production
+ExecStart=/usr/bin/python3 main.py --camera "http://192.168.1.15:8080/video"
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

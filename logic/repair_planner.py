@@ -41,12 +41,61 @@ class RepairPlanner:
             actions.append({"kind": "electrical_repair", "priority": 2, "code": finding.get("code"),
                             "instruction": finding.get("recommended_action") or "Resolve this deterministic electrical fault and rerun verification.",
                             "reason": finding.get("message", "Deterministic electrical fault.")})
+        actions = self._optimize_actions(actions)
+        if any(a.get("priority") == 0 for a in actions):
+            actions.insert(0, {
+                "kind": "safety", "priority": -1,
+                "instruction": "Disconnect power (USB cable) before making any changes.",
+                "reason": "A direct power short was detected. Remove power to prevent damage.",
+            })
+
         actions.sort(key=lambda item: (item["priority"], item.get("connection_id", item.get("code", ""))))
         return {"actions": actions, "next_action": actions[0] if actions else None,
                 "summary": {"remove": len(extra), "add": len(missing), "total": len(actions)}}
 
+    def _optimize_actions(self, actions):
+        removes = [a for a in actions if a["kind"] == "remove" and a.get("priority") != 0]
+        adds = [a for a in actions if a["kind"] == "add"]
+        moves = []
+        used_removes = set()
+        used_adds = set()
+        for ri, rem in enumerate(removes):
+            rem_parts = set(rem["connection_id"].split(" <-> "))
+            for ai, add in enumerate(adds):
+                if ai in used_adds:
+                    continue
+                add_parts = set(add["connection_id"].split(" <-> "))
+                shared = rem_parts & add_parts
+                if len(shared) == 1:
+                    fixed = shared.pop()
+                    old_end = (rem_parts - {fixed}).pop()
+                    new_end = (add_parts - {fixed}).pop()
+                    moves.append({
+                        "kind": "move", "priority": rem["priority"],
+                        "connection_id": rem["connection_id"],
+                        "instruction": f"Move the wire end from {old_end} to {new_end} (keep {fixed} connected).",
+                        "reason": f"Wire is in the wrong position.",
+                    })
+                    used_removes.add(ri)
+                    used_adds.add(ai)
+                    break
+        
+        remaining = []
+        for a in actions:
+            if a["kind"] == "remove" and a in removes and removes.index(a) in used_removes:
+                continue
+            if a["kind"] == "add" and a in adds and adds.index(a) in used_adds:
+                continue
+            remaining.append(a)
+            
+        return remaining + moves
+
     @staticmethod
     def _is_power_short(edge: dict[str, Any]) -> bool:
-        terminals = {edge["from"].lower(), edge["to"].lower()}
-        return (any(value.endswith((":5v", ":3v3", ":vcc")) for value in terminals)
-                and any(value.endswith((":gnd", ":ground")) for value in terminals))
+        import re
+        _POSITIVE_PATTERN = re.compile(r'(?i)[:_](v?cc|5v|3v3|3\.3v|vin|vbus|12v|9v|bat\+?|v\+|vdd|vbat|vsys)$')
+        _NEGATIVE_PATTERN = re.compile(r'(?i)[:_](g(?:nd|round)|agnd|pgnd|gnd_d|v-|vss|com)$')
+        terminals = [edge.get("from", ""), edge.get("to", "")]
+        has_positive = any(_POSITIVE_PATTERN.search(t) for t in terminals)
+        has_negative = any(_NEGATIVE_PATTERN.search(t) for t in terminals)
+        return has_positive and has_negative

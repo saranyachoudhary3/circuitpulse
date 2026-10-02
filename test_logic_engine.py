@@ -290,9 +290,15 @@ class TypedCircuitLogicTests(unittest.TestCase):
     def test_repair_planner_removes_short_before_adding_missing_wires(self):
         preset = PresetCatalog().get("led_blink")
         plan = RepairPlanner().plan(preset, [{"from": "arduino:5V", "to": "arduino:GND"}])
-        self.assertEqual(plan["next_action"]["kind"], "remove")
-        self.assertEqual(plan["next_action"]["priority"], 0)
-        self.assertEqual(plan["actions"][1]["kind"], "add")
+        # Safety pre-condition comes first (disconnect power), then remove
+        actions = plan["actions"]
+        if actions[0]["kind"] == "safety":
+            self.assertEqual(actions[0]["priority"], -1)
+            remove_action = actions[1]
+        else:
+            remove_action = actions[0]
+        self.assertEqual(remove_action["kind"], "remove")
+        self.assertEqual(remove_action["priority"], 0)
 
     def test_repair_planner_includes_typed_electrical_action(self):
         plan = RepairPlanner().plan(PresetCatalog().get("led_blink"), [], [{

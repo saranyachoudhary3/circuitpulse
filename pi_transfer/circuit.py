@@ -1,4 +1,4 @@
-﻿import os
+import os
 import json
 import time
 
@@ -30,7 +30,7 @@ POWER_CLASSES = {
 }
 
 
-class CircuitEngine:
+class CircuitSolver:
     def __init__(self):
         self.circuits = {}
         self.load_circuit_presets()
@@ -552,7 +552,7 @@ class CircuitEngine:
                     break
                 ohms = res.get("ohms")
                 raw_fmt = res.get("resistance", res.get("raw_value", ""))
-                formatted = str(raw_fmt).replace("\u03a9", " ohms").replace("Ω", " ohms")
+                formatted = str(raw_fmt).replace("\u03a9", " ohms").replace("", " ohms")
                 if ohms is not None and led_boxes and (ohms < 150 or ohms > 560):
                     loc = self._describe_location(res["bbox"], fw, fh)
                     errors.append({

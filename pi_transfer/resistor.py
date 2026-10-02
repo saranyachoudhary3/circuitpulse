@@ -1,4 +1,4 @@
-﻿import cv2
+import cv2
 import numpy as np
 
 COLOR_DIGITS = {
@@ -84,15 +84,15 @@ def snap_to_e12(val):
 
 def format_ohms(ohms, tol="5%"):
     if ohms < 1000:
-        formatted = f"{int(ohms)}Ω"
+        formatted = f"{int(ohms)}"
     elif ohms < 1000000:
         val = ohms / 1000.0
-        formatted = f"{val:g}kΩ"
+        formatted = f"{val:g}k"
     else:
         val = ohms / 1000000.0
-        formatted = f"{val:g}MΩ"
+        formatted = f"{val:g}M"
 
-    return f"{formatted} ±{tol}", formatted
+    return f"{formatted} {tol}", formatted
 
 
 class ResistorDecoder:

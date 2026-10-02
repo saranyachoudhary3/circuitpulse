@@ -1,4 +1,4 @@
-class BoxSmoother:
+class Tracker:
     def __init__(self, alpha=0.65, iou_thresh=0.38, max_missing=2):
         self.alpha = alpha
         self.iou_thresh = iou_thresh

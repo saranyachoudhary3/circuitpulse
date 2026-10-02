@@ -81,6 +81,8 @@ class NetlistVerifier:
                 {"positive_nets": sorted(positive_nets), "ground_nets": sorted(ground_nets)},
             ))
 
+        self._check_component_shorts(components, conductive_nets, findings)
+
         for positive in positive_nets:
             for ground in ground_nets:
                 if self._reachable(conductive_nets, positive, ground):
@@ -91,11 +93,25 @@ class NetlistVerifier:
                         {"positive_net": positive, "ground_net": ground},
                     ))
 
+        positive_list = list(positive_nets)
+        for i in range(len(positive_list)):
+            for j in range(i + 1, len(positive_list)):
+                if self._reachable(conductive_nets, positive_list[i], positive_list[j]):
+                    findings.append(Finding(
+                        "INTER_RAIL_SHORT",
+                        "critical",
+                        "Distinct positive rails are shorted together.",
+                        {"net1": positive_list[i], "net2": positive_list[j]}
+                    ))
+
         component_graph = self._component_graph(components, netlist.get("wires", []))
         for component in components:
-            if component["type"] != "led":
-                continue
-            self._check_led(component, components, positive_nets, ground_nets, component_graph, findings)
+            if component["type"] == "led":
+                self._check_led(component, components, positive_nets, ground_nets, component_graph, findings)
+            elif component["type"] in ("capacitor", "electrolytic_capacitor"):
+                self._check_capacitor(component, positive_nets, ground_nets, component_graph, findings)
+            elif component["type"] in ("motor", "dc_motor"):
+                self._check_motor(component, components, component_graph, findings)
 
         has_critical = any(f.severity == "critical" for f in findings)
         has_error = any(f.severity == "error" for f in findings)
@@ -156,7 +172,12 @@ class NetlistVerifier:
         graph: dict[str, list[tuple[str, str | None]]] = defaultdict(list)
         for wire in self._normalise_wires(wires):
             self._edge(graph, wire["from"], wire["to"], None)
+        
+        exclude_types = self.SUPPLIES | {"led", "capacitor", "electrolytic_capacitor", "motor", "dc_motor", "ic", "arduino", "mcu"}
+        
         for component in components:
+            if component["type"] in exclude_types:
+                continue
             pins = list(component["pins"].values())
             if len(pins) >= 2:
                 for index, first in enumerate(pins[:-1]):
@@ -196,6 +217,20 @@ class NetlistVerifier:
         if not anode or not cathode:
             findings.append(Finding("LED_PIN_DATA_MISSING", "error", f"LED {led['id']} must declare anode and cathode nets.", {"component": led["id"]}))
             return
+
+        anode_to_gnd = self._has_path(graph, anode, ground_nets) if ground_nets else False
+        anode_to_pos = self._has_path(graph, anode, positive_nets) if positive_nets else False
+        cathode_to_pos = self._has_path(graph, cathode, positive_nets) if positive_nets else False
+        cathode_to_gnd = self._has_path(graph, cathode, ground_nets) if ground_nets else False
+
+        if anode_to_gnd and not anode_to_pos and cathode_to_pos and not cathode_to_gnd:
+            findings.append(Finding(
+                "LED_REVERSED_POLARITY",
+                "critical",
+                f"LED {led['id']} is reversed: anode connected to ground and cathode to positive.",
+                {"component": led["id"], "anode_net": anode, "cathode_net": cathode}
+            ))
+
         # A layout without both declared references cannot establish a power
         # path; avoid turning absent evidence into a false safety failure.
         if not positive_nets or not ground_nets:
@@ -206,7 +241,10 @@ class NetlistVerifier:
             findings.append(Finding("LED_NO_RETURN_PATH", "error", f"LED {led['id']} cathode has no path to declared ground.", {"component": led["id"], "cathode_net": cathode}))
         resistors = [component for component in components if component["type"] == "resistor"]
         resistor_ids = {component["id"] for component in resistors}
-        if not positive_nets or not self._has_path(graph, anode, positive_nets, required_component_ids=resistor_ids):
+        
+        anode_has_resistor = self._has_path(graph, anode, positive_nets, required_component_ids=resistor_ids)
+        cathode_has_resistor = self._has_path(graph, cathode, ground_nets, required_component_ids=resistor_ids)
+        if not (anode_has_resistor or cathode_has_resistor):
             findings.append(Finding(
                 "LED_CURRENT_LIMITER_MISSING",
                 "critical",
@@ -220,7 +258,9 @@ class NetlistVerifier:
             if isinstance(resistor["value_ohms"], (int, float))
             and resistor["value_ohms"] >= self.MIN_LED_RESISTANCE_OHMS
         }
-        if self._has_path(graph, anode, positive_nets, required_component_ids=safe_resistor_ids):
+        anode_has_safe = self._has_path(graph, anode, positive_nets, required_component_ids=safe_resistor_ids)
+        cathode_has_safe = self._has_path(graph, cathode, ground_nets, required_component_ids=safe_resistor_ids)
+        if anode_has_safe or cathode_has_safe:
             return
         if any(resistor["value_ohms"] is None for resistor in resistors):
             findings.append(Finding(
@@ -236,6 +276,64 @@ class NetlistVerifier:
                 f"LED {led['id']} has no series resistor of at least {self.MIN_LED_RESISTANCE_OHMS} ohms.",
                 {"component": led["id"], "minimum_recommended_ohms": self.MIN_LED_RESISTANCE_OHMS},
             ))
+
+    def _check_component_shorts(self, components: list[dict[str, Any]], conductive_nets: dict[str, set[str]], findings: list[Finding]) -> None:
+        for component in components:
+            if component["type"] in self.CONDUCTORS or component["type"] in self.SUPPLIES:
+                continue
+            pins = list(component["pins"].values())
+            if not pins:
+                continue
+            first_pin = pins[0]
+            if all(self._reachable(conductive_nets, first_pin, pin) for pin in pins[1:]):
+                findings.append(Finding(
+                    "COMPONENT_SELF_SHORT",
+                    "critical",
+                    f"Component {component['id']} has all its pins shorted together.",
+                    {"component": component["id"]}
+                ))
+
+    def _check_capacitor(self, cap: dict[str, Any], positive_nets: set[str], ground_nets: set[str], component_graph: dict[str, list[tuple[str, str | None]]], findings: list[Finding]) -> None:
+        if cap["type"] != "electrolytic_capacitor" and not cap.get("polarized"):
+            return
+        pos_pin = cap["pins"].get("positive") or cap["pins"].get("+")
+        neg_pin = cap["pins"].get("negative") or cap["pins"].get("-")
+        if not pos_pin or not neg_pin:
+            return
+        
+        pos_to_gnd = self._has_path(component_graph, pos_pin, ground_nets) if ground_nets else False
+        pos_to_pos = self._has_path(component_graph, pos_pin, positive_nets) if positive_nets else False
+        neg_to_pos = self._has_path(component_graph, neg_pin, positive_nets) if positive_nets else False
+        neg_to_gnd = self._has_path(component_graph, neg_pin, ground_nets) if ground_nets else False
+
+        if pos_to_gnd and not pos_to_pos and neg_to_pos and not neg_to_gnd:
+            findings.append(Finding(
+                "CAPACITOR_REVERSED_POLARITY",
+                "critical",
+                f"Capacitor {cap['id']} is reversed: positive pin connected to ground and negative to positive.",
+                {"component": cap["id"]}
+            ))
+
+    def _check_motor(self, motor: dict[str, Any], components: list[dict[str, Any]], component_graph: dict[str, list[tuple[str, str | None]]], findings: list[Finding]) -> None:
+        mcu_pins = set()
+        for comp in components:
+            if comp["type"] in ("arduino", "mcu"):
+                for pin_name, net in comp["pins"].items():
+                    if pin_name.lower() not in {"5v", "3v3", "vcc", "vdd", "gnd", "ground", "positive", "negative", "+", "-"}:
+                        mcu_pins.add(net)
+        
+        if not mcu_pins:
+            return
+            
+        for pin_net in motor["pins"].values():
+            if self._has_path(component_graph, pin_net, mcu_pins):
+                findings.append(Finding(
+                    "MOTOR_DIRECT_GPIO",
+                    "critical",
+                    f"Motor {motor['id']} is connected directly to a GPIO pin without a driver.",
+                    {"component": motor["id"], "motor_net": pin_net}
+                ))
+                break
 
     @staticmethod
     def _connect(graph: dict[str, set[str]], first: str, second: str) -> None:

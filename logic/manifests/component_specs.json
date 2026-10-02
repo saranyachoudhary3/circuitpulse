@@ -1,0 +1,249 @@
+{
+  "schema_version": 1,
+  "components": {
+    "arduino_uno": {
+      "display_name": "Arduino Uno R3",
+      "category": "mcu",
+      "voltage": ["5V"],
+      "operating_voltage_v": 5.0,
+      "input_voltage_range_v": [7.0, 12.0],
+      "gpio_max_current_ma": 20,
+      "gpio_absolute_max_current_ma": 40,
+      "total_max_current_ma": 500,
+      "digital_pins": 14,
+      "analog_pins": 6,
+      "pwm_pins": [3, 5, 6, 9, 10, 11],
+      "i2c_pins": {"sda": "A4", "scl": "A5"},
+      "spi_pins": {"mosi": 11, "miso": 12, "sck": 13, "ss": 10},
+      "needs_flyback": false
+    },
+    "arduino_nano": {
+      "display_name": "Arduino Nano",
+      "category": "mcu",
+      "voltage": ["5V"],
+      "operating_voltage_v": 5.0,
+      "input_voltage_range_v": [7.0, 12.0],
+      "gpio_max_current_ma": 20,
+      "gpio_absolute_max_current_ma": 40,
+      "total_max_current_ma": 500,
+      "digital_pins": 14,
+      "analog_pins": 8,
+      "pwm_pins": [3, 5, 6, 9, 10, 11],
+      "needs_flyback": false
+    },
+    "arduino_mega": {
+      "display_name": "Arduino Mega 2560",
+      "category": "mcu",
+      "voltage": ["5V"],
+      "operating_voltage_v": 5.0,
+      "input_voltage_range_v": [7.0, 12.0],
+      "gpio_max_current_ma": 20,
+      "gpio_absolute_max_current_ma": 40,
+      "total_max_current_ma": 800,
+      "digital_pins": 54,
+      "analog_pins": 16,
+      "needs_flyback": false
+    },
+    "esp32": {
+      "display_name": "ESP32 Dev Module",
+      "category": "mcu",
+      "voltage": ["3.3V"],
+      "operating_voltage_v": 3.3,
+      "input_voltage_range_v": [5.0, 12.0],
+      "gpio_max_current_ma": 12,
+      "gpio_absolute_max_current_ma": 40,
+      "total_max_current_ma": 500,
+      "digital_pins": 34,
+      "analog_pins": 18,
+      "needs_flyback": false
+    },
+    "esp8266": {
+      "display_name": "NodeMCU ESP8266",
+      "category": "mcu",
+      "voltage": ["3.3V"],
+      "operating_voltage_v": 3.3,
+      "input_voltage_range_v": [5.0, 10.0],
+      "gpio_max_current_ma": 12,
+      "gpio_absolute_max_current_ma": 12,
+      "total_max_current_ma": 500,
+      "digital_pins": 17,
+      "analog_pins": 1,
+      "needs_flyback": false
+    },
+    "red_led": {
+      "display_name": "Red LED 5mm",
+      "category": "optoelectronics",
+      "voltage": ["2V"],
+      "operating_voltage_v": 2.0,
+      "gpio_max_current_ma": 20,
+      "total_max_current_ma": 20,
+      "needs_flyback": false
+    },
+    "green_led": {
+      "display_name": "Green LED 5mm",
+      "category": "optoelectronics",
+      "voltage": ["2.2V"],
+      "operating_voltage_v": 2.2,
+      "gpio_max_current_ma": 20,
+      "total_max_current_ma": 20,
+      "needs_flyback": false
+    },
+    "blue_led": {
+      "display_name": "Blue LED 5mm",
+      "category": "optoelectronics",
+      "voltage": ["3.2V"],
+      "operating_voltage_v": 3.2,
+      "gpio_max_current_ma": 20,
+      "total_max_current_ma": 20,
+      "needs_flyback": false
+    },
+    "white_led": {
+      "display_name": "White LED 5mm",
+      "category": "optoelectronics",
+      "voltage": ["3.2V"],
+      "operating_voltage_v": 3.2,
+      "gpio_max_current_ma": 20,
+      "total_max_current_ma": 20,
+      "needs_flyback": false
+    },
+    "ir_led": {
+      "display_name": "IR LED 5mm",
+      "category": "optoelectronics",
+      "voltage": ["1.2V", "1.5V"],
+      "operating_voltage_v": 1.2,
+      "gpio_max_current_ma": 50,
+      "total_max_current_ma": 50,
+      "needs_flyback": false
+    },
+    "2n2222_bjt": {
+      "display_name": "2N2222 NPN Transistor",
+      "category": "semiconductor",
+      "voltage": ["40V"],
+      "operating_voltage_v": 40.0,
+      "total_max_current_ma": 800,
+      "needs_flyback": false
+    },
+    "irf520_mosfet": {
+      "display_name": "IRF520 N-Channel MOSFET",
+      "category": "semiconductor",
+      "voltage": ["100V"],
+      "operating_voltage_v": 100.0,
+      "total_max_current_ma": 9200,
+      "needs_flyback": false
+    },
+    "tip120_darlington": {
+      "display_name": "TIP120 Darlington Transistor",
+      "category": "semiconductor",
+      "voltage": ["60V"],
+      "operating_voltage_v": 60.0,
+      "total_max_current_ma": 5000,
+      "needs_flyback": false
+    },
+    "l293d_motor_driver": {
+      "display_name": "L293D Motor Driver",
+      "category": "ic",
+      "voltage": ["5V", "36V"],
+      "operating_voltage_v": 5.0,
+      "input_voltage_range_v": [4.5, 36.0],
+      "total_max_current_ma": 600,
+      "needs_flyback": false
+    },
+    "l298n_motor_driver": {
+      "display_name": "L298N Motor Driver Module",
+      "category": "module",
+      "voltage": ["5V", "35V"],
+      "operating_voltage_v": 5.0,
+      "input_voltage_range_v": [5.0, 35.0],
+      "total_max_current_ma": 2000,
+      "needs_flyback": false
+    },
+    "sg90_servo": {
+      "display_name": "SG90 Micro Servo",
+      "category": "actuator",
+      "voltage": ["4.8V", "6.0V"],
+      "operating_voltage_v": 5.0,
+      "input_voltage_range_v": [4.8, 6.0],
+      "total_max_current_ma": 250,
+      "needs_flyback": false
+    },
+    "hc_sr04_ultrasonic": {
+      "display_name": "HC-SR04 Ultrasonic Sensor",
+      "category": "sensor",
+      "voltage": ["5V"],
+      "operating_voltage_v": 5.0,
+      "total_max_current_ma": 15,
+      "needs_flyback": false
+    },
+    "dht11": {
+      "display_name": "DHT11 Temp/Humidity Sensor",
+      "category": "sensor",
+      "voltage": ["3.3V", "5V"],
+      "operating_voltage_v": 5.0,
+      "input_voltage_range_v": [3.3, 5.5],
+      "total_max_current_ma": 2.5,
+      "needs_flyback": false
+    },
+    "dht22": {
+      "display_name": "DHT22 Temp/Humidity Sensor",
+      "category": "sensor",
+      "voltage": ["3.3V", "5V"],
+      "operating_voltage_v": 5.0,
+      "input_voltage_range_v": [3.3, 5.5],
+      "total_max_current_ma": 1.5,
+      "needs_flyback": false
+    },
+    "relay_1ch": {
+      "display_name": "1-Channel Relay Module",
+      "category": "module",
+      "voltage": ["5V"],
+      "operating_voltage_v": 5.0,
+      "total_max_current_ma": 70,
+      "needs_flyback": true
+    },
+    "lm7805_regulator": {
+      "display_name": "LM7805 Voltage Regulator",
+      "category": "ic",
+      "voltage": ["5V"],
+      "operating_voltage_v": 5.0,
+      "input_voltage_range_v": [7.0, 35.0],
+      "total_max_current_ma": 1500,
+      "needs_flyback": false
+    },
+    "ams1117_3v3": {
+      "display_name": "AMS1117 3.3V Regulator",
+      "category": "ic",
+      "voltage": ["3.3V"],
+      "operating_voltage_v": 3.3,
+      "input_voltage_range_v": [4.8, 15.0],
+      "total_max_current_ma": 1000,
+      "needs_flyback": false
+    },
+    "ne555_timer": {
+      "display_name": "NE555 Timer IC",
+      "category": "ic",
+      "voltage": ["5V", "15V"],
+      "operating_voltage_v": 5.0,
+      "input_voltage_range_v": [4.5, 16.0],
+      "total_max_current_ma": 200,
+      "needs_flyback": false
+    },
+    "piezo_buzzer": {
+      "display_name": "Active Piezo Buzzer",
+      "category": "audio",
+      "voltage": ["3.3V", "5V"],
+      "operating_voltage_v": 5.0,
+      "input_voltage_range_v": [3.3, 5.0],
+      "total_max_current_ma": 30,
+      "needs_flyback": false
+    },
+    "dc_motor_generic": {
+      "display_name": "Generic 3-6V DC Motor",
+      "category": "actuator",
+      "voltage": ["3V", "6V"],
+      "operating_voltage_v": 5.0,
+      "input_voltage_range_v": [3.0, 6.0],
+      "total_max_current_ma": 1000,
+      "needs_flyback": true
+    }
+  }
+}

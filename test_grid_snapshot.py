@@ -9,33 +9,27 @@ from logic.grid import BreadboardGrid
 from logic.snapshot import SnapshotManager
 
 class BreadboardGridTests(unittest.TestCase):
-    def test_horizontal_board_orientation(self):
-        bb_box = {'x1': 0, 'y1': 0, 'x2': 200, 'y2': 100}
-        grid = BreadboardGrid(bb_box)
-        self.assertTrue(grid.is_horizontal)
-
-    def test_vertical_board_orientation(self):
-        bb_box = {'x1': 0, 'y1': 0, 'x2': 100, 'y2': 200}
-        grid = BreadboardGrid(bb_box)
-        self.assertFalse(grid.is_horizontal)
-
-    def test_pin_outside_board_returns_none(self):
+    def test_pin_outside_board_is_clamped(self):
         bb_box = {'x1': 10, 'y1': 10, 'x2': 210, 'y2': 110}
         grid = BreadboardGrid(bb_box)
-        self.assertIsNone(grid.get_pin_location(5, 5))
-        self.assertIsNone(grid.get_pin_location(215, 115))
+        pin1 = grid.get_pin_location(5, 5)
+        pin2 = grid.get_pin_location(215, 115)
+        self.assertIsNotNone(pin1)
+        self.assertIsNotNone(pin2)
+        self.assertEqual(pin1['side'], 'top_rail')
+        self.assertEqual(pin2['side'], 'bottom_rail')
 
-    def test_pin_top_side_horizontal_board(self):
+    def test_pin_top_side(self):
         bb_box = {'x1': 0, 'y1': 0, 'x2': 200, 'y2': 100}
         grid = BreadboardGrid(bb_box)
-        pin = grid.get_pin_location(50, 20) # y < 50
-        self.assertEqual(pin['side'], 'top')
+        pin = grid.get_pin_location(100, 5) # y < 8%
+        self.assertEqual(pin['side'], 'top_rail')
 
-    def test_pin_bottom_side_horizontal_board(self):
+    def test_pin_bottom_side(self):
         bb_box = {'x1': 0, 'y1': 0, 'x2': 200, 'y2': 100}
         grid = BreadboardGrid(bb_box)
-        pin = grid.get_pin_location(50, 80) # y > 50
-        self.assertEqual(pin['side'], 'bottom')
+        pin = grid.get_pin_location(100, 95) # y > 92%
+        self.assertEqual(pin['side'], 'bottom_rail')
 
     def test_row_clamped_between_1_and_30(self):
         bb_box = {'x1': 0, 'y1': 0, 'x2': 300, 'y2': 100}
