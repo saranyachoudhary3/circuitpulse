@@ -12,6 +12,20 @@ PWM_WRITE = re.compile(r"\b(?:analogWrite|ledcWrite)\s*\(\s*([A-Za-z0-9_]+)\s*,\
 SERIAL_BEGIN = re.compile(r"\bSerial\w*\.begin\s*\(\s*(\d+)")
 PIN_DEFINE = re.compile(r"(?m)^\s*(?:#define\s+|(?:const|constexpr)\s+(?:uint\d+_t|int)\s+)([A-Za-z_]\w*)\s*(?:=\s*)?([A-Za-z0-9_]+)")
 
+_LINE_COMMENT = re.compile(r"//[^\n]*")
+_BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
+
+
+def _strip_comments(source: str) -> str:
+    """Remove C/C++ comments before regex parsing.
+
+    Prevents commented-out code like ``// pinMode(13, OUTPUT)`` from
+    being parsed as live pin configuration.
+    """
+    source = _BLOCK_COMMENT.sub("", source)
+    source = _LINE_COMMENT.sub("", source)
+    return source
+
 
 def analyze_firmware(source: str) -> dict[str, Any]:
     """Extract only explicit, statically visible hardware intent.
@@ -21,6 +35,7 @@ def analyze_firmware(source: str) -> dict[str, Any]:
     """
     if not isinstance(source, str) or not source.strip():
         raise ValueError("Firmware source must be a non-empty string.")
+    source = _strip_comments(source)
     aliases = {name: value for name, value in PIN_DEFINE.findall(source)}
 
     def resolve(pin: str) -> str:

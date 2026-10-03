@@ -44,6 +44,50 @@ class DigitalTwinEngine:
         status = "FAIL" if any(item["severity"] in {"critical", "error"} for item in findings) else ("INDETERMINATE" if findings else "PASS")
         return {"status": status, "findings": findings, "checked_components": len(components), "evidence_mode": "declared_operating_envelope"}
 
+    def verify(self, circuit) -> dict[str, Any]:
+        components = [c.raw for c in circuit.components.values()]
+        result = self.evaluate(components)
+        power_budget_findings = self._check_power_budget(circuit)
+        result["findings"].extend(power_budget_findings)
+        if any(item["severity"] in {"critical", "error"} for item in power_budget_findings):
+            result["status"] = "FAIL"
+        elif result["status"] != "FAIL" and power_budget_findings:
+            result["status"] = "INDETERMINATE"
+        return result
+
+    def _check_power_budget(self, circuit) -> list[dict[str, Any]]:
+        total_supply_ma = 0.0
+        total_load_ma = 0.0
+        
+        for comp in circuit.components.values():
+            spec = self.specs.get(comp.type, {})
+            supply_ma = spec.get("total_max_current_ma")
+            if supply_ma is not None:
+                try:
+                    if isinstance(supply_ma, str):
+                        supply_ma = supply_ma.replace("mA", "").replace(" ", "").replace("A", "")
+                    total_supply_ma += float(supply_ma)
+                except ValueError:
+                    pass
+            
+            load_ma = spec.get("max_current_ma") or spec.get("typical_current_ma")
+            if load_ma is not None:
+                try:
+                    if isinstance(load_ma, str):
+                        load_ma = load_ma.replace("mA", "").replace(" ", "").replace("A", "")
+                    total_load_ma += float(load_ma)
+                except ValueError:
+                    pass
+                    
+        findings = []
+        if total_load_ma > total_supply_ma and total_supply_ma > 0:
+            findings.append({
+                "code": "POWER_BUDGET_EXCEEDED",
+                "severity": "warning",
+                "message": "The total current draw of components exceeds the supply's maximum rating."
+            })
+        return findings
+
     def _evaluate_component(self, component: dict[str, Any]) -> list[dict[str, Any]]:
         module_id = component.get("module_id")
         manifest = self.catalog.get(module_id) if isinstance(module_id, str) else None
