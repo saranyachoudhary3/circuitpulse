@@ -244,6 +244,45 @@
       "input_voltage_range_v": [3.0, 6.0],
       "total_max_current_ma": 1000,
       "needs_flyback": true
+    },
+    "push_button": {
+      "display_name": "Push Button",
+      "category": "switch",
+      "type": "switch",
+      "bounce_time_ms": 50,
+      "max_current_ma": 50
+    },
+    "potentiometer": {
+      "display_name": "Potentiometer",
+      "category": "sensor",
+      "resistance_range": [0, 10000],
+      "pins": ["1", "wiper", "2"]
+    },
+    "photoresistor": {
+      "display_name": "Photoresistor",
+      "category": "sensor",
+      "dark_resistance": 1000000,
+      "light_resistance": 1000
+    },
+    "shift_register_74hc595": {
+      "display_name": "74HC595 Shift Register",
+      "category": "ic",
+      "supply_voltage_v": 5.0,
+      "max_clock_mhz": 25,
+      "output_pins": 8
+    },
+    "level_converter": {
+      "display_name": "Logic Level Converter",
+      "category": "module",
+      "hv_max_v": 5.5,
+      "lv_max_v": 3.6
+    },
+    "lcd_i2c_16x2": {
+      "display_name": "I2C LCD 16x2",
+      "category": "display",
+      "i2c_address": "0x27",
+      "supply_voltage_v": 5.0,
+      "max_current_ma": 40
     }
   }
 }

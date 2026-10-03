@@ -234,8 +234,11 @@ class CircuitLogicEngine:
             neg_pin = inductor.pins.get("negative", inductor.pins.get("-", inductor.pins.get("2")))
             
             if pos_pin and neg_pin:
-                pos_net = circuit.canonical_net(pos_pin)
-                neg_net = circuit.canonical_net(neg_pin)
+                try:
+                    pos_net = circuit.canonical_net(pos_pin)
+                    neg_net = circuit.canonical_net(neg_pin)
+                except CircuitIRError:
+                    return []
                 
                 diodes = [c for c in circuit.components.values() if c.type == "diode"]
                 for diode in diodes:

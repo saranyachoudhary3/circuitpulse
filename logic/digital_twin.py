@@ -32,8 +32,9 @@ class DigitalTwinEngine:
                         self.MAX_CURRENT_MA[comp_id] = spec["total_max_current_ma"]
                     if spec.get("needs_flyback"):
                         self.NEEDS_FLYBACK.add(comp_id)
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.warning(f'Failed to load component specs: {e}')
 
     def evaluate(self, components: list[dict[str, Any]]) -> dict[str, Any]:
         if not isinstance(components, list):
