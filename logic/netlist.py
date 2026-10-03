@@ -113,6 +113,8 @@ class NetlistVerifier:
             elif component["type"] in ("motor", "dc_motor"):
                 self._check_motor(component, components, component_graph, findings)
 
+        self._check_floating_inputs(components, component_graph, positive_nets, ground_nets, findings)
+
         has_critical = any(f.severity == "critical" for f in findings)
         has_error = any(f.severity == "error" for f in findings)
         status = FAIL if has_critical or has_error else (INDETERMINATE if findings else PASS)
@@ -334,6 +336,41 @@ class NetlistVerifier:
                     {"component": motor["id"], "motor_net": pin_net}
                 ))
                 break
+
+    def _check_floating_inputs(self, components: list[dict[str, Any]], component_graph: dict[str, list[tuple[str, str | None]]], positive_nets: set[str], ground_nets: set[str], findings: list[Finding]) -> None:
+        mcu_pins = []
+        for comp in components:
+            if comp["type"] in {"arduino", "mcu", "esp32", "esp8266"}:
+                for pin_name, net in comp["pins"].items():
+                    if pin_name.lower() not in {"5v", "3v3", "vcc", "vdd", "gnd", "ground", "positive", "negative", "+", "-"}:
+                        mcu_pins.append((net, comp["id"], pin_name))
+        
+        switch_nets = set()
+        switch_ids = set()
+        for comp in components:
+            if comp["type"] in {"button", "switch", "pushbutton"}:
+                switch_nets.update(comp["pins"].values())
+                switch_ids.add(comp["id"])
+                
+        resistors = {comp["id"] for comp in components if comp["type"] == "resistor"}
+        
+        static_graph: dict[str, list[tuple[str, str | None]]] = defaultdict(list)
+        for net, neighbors in component_graph.items():
+            for neighbor, comp_id in neighbors:
+                if comp_id not in switch_ids:
+                    static_graph[net].append((neighbor, comp_id))
+        
+        for net, mcu_id, pin_name in mcu_pins:
+            if net in switch_nets or self._has_path(component_graph, net, switch_nets):
+                has_pullup = self._has_path(static_graph, net, positive_nets, required_component_ids=resistors) if positive_nets else False
+                has_pulldown = self._has_path(static_graph, net, ground_nets, required_component_ids=resistors) if ground_nets else False
+                if not has_pullup and not has_pulldown:
+                    findings.append(Finding(
+                        "FLOATING_INPUT",
+                        "warning",
+                        f"Pin {pin_name} on {mcu_id} is connected to a switch but has no pullup/pulldown resistor. The input will float and behave unpredictably.",
+                        {"component": mcu_id, "pin": pin_name}
+                    ))
 
     @staticmethod
     def _connect(graph: dict[str, set[str]], first: str, second: str) -> None:

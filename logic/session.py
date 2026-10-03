@@ -59,6 +59,8 @@ class GraphSession:
     # vision-only edge is removed.  User confirmations are intentional
     # operator evidence and remain until the operator revokes them.
     ABSENCE_REQUIRED = 5
+    
+    SOURCE_CONFIDENCE = {"user_confirmed": 1.0, "instrumented": 0.95, "vision": 0.7}
 
     def __init__(self, preset: dict[str, Any], on_change: Callable[[dict[str, Any]], None] | None = None):
         self.id = str(uuid4())
@@ -195,6 +197,23 @@ class GraphSession:
                 self._invalidate_verification_locked()
             return self._publish_locked()
 
+    def _connection_confidence(self, key: str) -> float:
+        evidence = self._accepted.get(key)
+        if evidence is not None:
+            source = evidence.source
+        else:
+            observed, pending = self._stable_evidence_locked()
+            if key in observed:
+                source = observed[key].source
+            else:
+                source = "vision"
+        
+        base = self.SOURCE_CONFIDENCE.get(source, 0.5)
+        history = self._histories.get(key, deque())
+        stability_bonus = min(0.2, len(history) / self.STABLE_WINDOW * 0.2)
+        contradiction_penalty = 0.1 if key in self._rejected else 0.0
+        return min(1.0, max(0.0, base + stability_bonus - contradiction_penalty))
+
     def state(self) -> dict[str, Any]:
         with self._lock:
             return deepcopy(self._last_state or self._build_state_locked())
@@ -259,11 +278,21 @@ class GraphSession:
         else:
             status = "PASS"
 
+        observed_list = []
+        overall_confidence = 1.0
+        for key in sorted(observed_keys):
+            d = observed[key].as_dict()
+            conf = self._connection_confidence(key)
+            d["confidence"] = conf
+            overall_confidence = min(overall_confidence, conf)
+            observed_list.append(d)
+
         graph = {"expected": [self._expected[key] for key in sorted(expected_keys)],
-                 "observed": [observed[key].as_dict() for key in sorted(observed_keys)], "pending": pending}
+                 "observed": observed_list, "pending": pending}
         state = {
             "session_id": self.id, "revision": self.revision, "graph_revision": self.graph_revision,
             "graph_fingerprint": self._graph_fingerprint_from_observed(observed), "updated_at": self.updated_at,
+            "overall_confidence": overall_confidence if observed_keys else 1.0,
             "preset": {"id": self.preset["id"], "name": self.preset["name"]},
             "status": status, "electrical_status": status,
             "evidence_mode": "confirmed_graph", "camera_status": "READY" if self._camera_available else "REACQUIRING",

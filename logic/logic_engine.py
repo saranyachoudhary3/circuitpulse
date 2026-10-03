@@ -93,7 +93,7 @@ class CircuitLogicEngine:
         if kind == "gpio_output":
             return self._gpio_output(requirement)
         if kind == "inductive_load":
-            return self._inductive_load(requirement)
+            return self._inductive_load(circuit, requirement)
         if kind == "dc_operating_point":
             return self._dc_operating_point(circuit, requirement)
         if kind == "digital_logic":
@@ -155,14 +155,30 @@ class CircuitLogicEngine:
                 raise CircuitIRError("Voltage-divider legs must be resistors.")
             r1, r2 = float(upper.raw["value_ohms"]), float(lower.raw["value_ohms"])
             input_v = float(rule["input_voltage_v"])
-            output_v = input_v * r2 / (r1 + r2)
+            
+            load_r = rule.get("load_resistance_ohms")
+            if load_r is not None:
+                r_parallel = (r2 * float(load_r)) / (r2 + float(load_r))
+                output_v = input_v * r_parallel / (r1 + r_parallel)
+                unloaded_v = input_v * r2 / (r1 + r2)
+            else:
+                output_v = input_v * r2 / (r1 + r2)
+                unloaded_v = output_v
+                
             output_net = circuit.canonical_net(rule["output_net"])
             if output_net not in {circuit.canonical_net(net) for net in upper.pins.values()} or output_net not in {circuit.canonical_net(net) for net in lower.pins.values()}:
                 return [self._finding("DIVIDER_TOPOLOGY_INVALID", "error", "Both divider resistors must meet at output_net.", None)]
             minimum, maximum = float(rule.get("output_min_v", float("-inf"))), float(rule.get("output_max_v", float("inf")))
+            
+            findings = []
+            if load_r is not None and (minimum <= unloaded_v <= maximum) and not (minimum <= output_v <= maximum):
+                findings.append(self._finding("VOLTAGE_DIVIDER_LOADED_SAG", "warning", 
+                    f"Loaded divider output {output_v:.3f} V sags outside the safe range (unloaded was {unloaded_v:.3f} V).", None, 
+                    {"unloaded_v": round(unloaded_v, 4), "loaded_v": round(output_v, 4), "min_v": minimum, "max_v": maximum}))
+                
             if not minimum <= output_v <= maximum:
-                return [self._finding("DIVIDER_OUTPUT_OUT_OF_RANGE", "critical", f"Calculated divider output {output_v:.3f} V is outside the declared safe range.", None, {"output_v": round(output_v, 4), "min_v": minimum, "max_v": maximum})]
-            return []
+                findings.append(self._finding("DIVIDER_OUTPUT_OUT_OF_RANGE", "critical", f"Calculated divider output {output_v:.3f} V is outside the declared safe range.", None, {"output_v": round(output_v, 4), "min_v": minimum, "max_v": maximum}))
+            return findings
         except (KeyError, TypeError, ValueError, ZeroDivisionError, CircuitIRError) as error:
             return [self._finding("DIVIDER_REQUIREMENT_INVALID", "error", str(error), None)]
 
@@ -206,9 +222,42 @@ class CircuitLogicEngine:
         except (KeyError, TypeError, ValueError):
             return [self._finding("GPIO_REQUIREMENT_INVALID", "error", "GPIO rule needs numeric load_current_ma and max_current_ma.", rule.get("component_id"))]
 
-    def _inductive_load(self, rule: dict[str, Any]) -> list[dict[str, Any]]:
+    def _inductive_load(self, circuit: CircuitIR, rule: dict[str, Any]) -> list[dict[str, Any]]:
+        component_id = rule.get("component_id")
+        try:
+            inductor = circuit.component(component_id) if component_id else None
+        except CircuitIRError:
+            inductor = None
+
+        if inductor and inductor.type in {"motor", "dc_motor", "relay", "solenoid"}:
+            pos_pin = inductor.pins.get("positive", inductor.pins.get("+", inductor.pins.get("1")))
+            neg_pin = inductor.pins.get("negative", inductor.pins.get("-", inductor.pins.get("2")))
+            
+            if pos_pin and neg_pin:
+                pos_net = circuit.canonical_net(pos_pin)
+                neg_net = circuit.canonical_net(neg_pin)
+                
+                diodes = [c for c in circuit.components.values() if c.type == "diode"]
+                for diode in diodes:
+                    anode_pin = diode.pins.get("anode", diode.pins.get("+"))
+                    cathode_pin = diode.pins.get("cathode", diode.pins.get("-"))
+                    if not anode_pin or not cathode_pin:
+                        continue
+                    anode = circuit.canonical_net(anode_pin)
+                    cathode = circuit.canonical_net(cathode_pin)
+                    
+                    # Check for correct antiparallel orientation
+                    if cathode == pos_net and anode == neg_net:
+                        return [] # PASS
+                    if anode == pos_net and cathode == neg_net:
+                        return [self._finding("FLYBACK_DIODE_REVERSED", "error", "Flyback diode is installed in reverse.", component_id)]
+                
+                # If no diode found in correct/reversed orientation
+                return [self._finding("INDUCTIVE_LOAD_NO_FLYBACK", "warning", "Declared inductive load lacks flyback protection.", component_id)]
+            
+        # Fallback if no inductor found or missing component_id or pins
         if not rule.get("flyback_protection"):
-            return [self._finding("FLYBACK_PROTECTION_MISSING", "critical", "Declared inductive load lacks flyback protection.", rule.get("component_id"))]
+            return [self._finding("FLYBACK_PROTECTION_MISSING", "critical", "Declared inductive load lacks flyback protection.", component_id)]
         return []
 
     def _dc_operating_point(self, circuit: CircuitIR, rule: dict[str, Any]) -> list[dict[str, Any]]:

@@ -39,7 +39,7 @@ class RepairPlanner:
             if finding.get("severity") not in {"critical", "error"}:
                 continue
             actions.append({"kind": "electrical_repair", "priority": 2, "code": finding.get("code"),
-                            "instruction": finding.get("recommended_action") or "Resolve this deterministic electrical fault and rerun verification.",
+                            "instruction": finding.get("recommended_action") or finding.get("message") or "Resolve this deterministic electrical fault and rerun verification.",
                             "reason": finding.get("message", "Deterministic electrical fault.")})
         actions = self._optimize_actions(actions)
         if any(a.get("priority") == 0 for a in actions):
@@ -50,8 +50,65 @@ class RepairPlanner:
             })
 
         actions.sort(key=lambda item: (item["priority"], item.get("connection_id", item.get("code", ""))))
+        
+        tutorial_steps = []
+        step_idx = 1
+        
+        if any(a.get("kind") == "safety" for a in actions):
+            tutorial_steps.append({
+                "step": step_idx,
+                "instruction": "Disconnect the USB cable or power supply from your board.",
+                "reason": "A direct power short was detected. Remove power to prevent damage.",
+                "safety_note": "CRITICAL: Do this before touching any wires."
+            })
+            step_idx += 1
+            
+        for a in actions:
+            if a.get("kind") == "safety": continue
+            
+            if a["kind"] == "remove":
+                from_t = a["connection_id"].split(" <-> ")[0]
+                to_t = a["connection_id"].split(" <-> ")[1]
+                tutorial_steps.append({
+                    "step": step_idx,
+                    "instruction": f"Remove the wire connecting {from_t} to {to_t}",
+                    "reason": a.get("reason", "")
+                })
+                step_idx += 1
+            elif a["kind"] == "move":
+                tutorial_steps.append({
+                    "step": step_idx,
+                    "instruction": f"Move the wire end from {a.get('old_end')} to {a.get('new_end')}, keeping it connected at {a.get('fixed')}",
+                    "reason": a.get("reason", "")
+                })
+                step_idx += 1
+            elif a["kind"] == "add":
+                from_t = a["connection_id"].split(" <-> ")[0]
+                to_t = a["connection_id"].split(" <-> ")[1]
+                tutorial_steps.append({
+                    "step": step_idx,
+                    "instruction": f"Connect a wire from {from_t} to {to_t}",
+                    "reason": a.get("reason", "")
+                })
+                step_idx += 1
+            elif a["kind"] == "electrical_repair":
+                tutorial_steps.append({
+                    "step": step_idx,
+                    "instruction": a.get("instruction", ""),
+                    "reason": a.get("reason", "")
+                })
+                step_idx += 1
+                
+        if len(actions) > 0:
+            tutorial_steps.append({
+                "step": step_idx,
+                "instruction": "Reconnect power and verify the circuit",
+                "reason": "All planned repair steps are complete."
+            })
+            
         return {"actions": actions, "next_action": actions[0] if actions else None,
-                "summary": {"remove": len(extra), "add": len(missing), "total": len(actions)}}
+                "summary": {"remove": len(extra), "add": len(missing), "total": len(actions)},
+                "tutorial_steps": tutorial_steps}
 
     def _optimize_actions(self, actions):
         removes = [a for a in actions if a["kind"] == "remove" and a.get("priority") != 0]
@@ -75,6 +132,9 @@ class RepairPlanner:
                         "connection_id": rem["connection_id"],
                         "instruction": f"Move the wire end from {old_end} to {new_end} (keep {fixed} connected).",
                         "reason": f"Wire is in the wrong position.",
+                        "old_end": old_end,
+                        "new_end": new_end,
+                        "fixed": fixed
                     })
                     used_removes.add(ri)
                     used_adds.add(ai)
