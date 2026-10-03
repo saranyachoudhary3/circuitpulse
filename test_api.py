@@ -782,3 +782,85 @@ class TestWebSocketEvents(BaseApiTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+class TestExtendedIntegrationCases(BaseApiTestCase):
+    def test_health_without_camera(self):
+        main.camera_connected = False
+        res = self.client.get("/api/health")
+        data = res.get_json()
+        self.assertFalse(data.get("camera", True)) # In main.py: "camera": camera_connected
+
+    def test_readiness_without_camera(self):
+        main.camera_connected = False
+        res = self.client.get("/api/readiness")
+        data = res.get_json()
+        self.assertFalse(data["automatic_verification"])
+        self.assertTrue(any(b["code"] == "CAMERA_UNAVAILABLE" for b in data["blockers"]))
+
+    def test_sessions_post_invalid_json(self):
+        res = self.client.post("/api/sessions", data="not json", content_type="text/plain")
+        self.assertEqual(res.status_code, 400)
+
+    def test_sessions_post_empty_json(self):
+        res = self.client.post("/api/sessions", json={})
+        self.assertEqual(res.status_code, 400)
+
+    def test_identify_presets_empty_components(self):
+        res = self.client.post("/api/presets/identify", json={"components": []})
+        self.assertEqual(res.status_code, 200)
+
+    def test_identify_presets_missing_components(self):
+        res = self.client.post("/api/presets/identify", json={})
+        self.assertEqual(res.status_code, 200)
+
+    def test_repair_plan_missing_observed(self):
+        res = self.client.post("/api/presets/led_blink/repair-plan", json={})
+        self.assertEqual(res.status_code, 200)
+
+    def test_netlist_verify_empty_components(self):
+        res = self.client.post("/api/netlist/verify", json={"components": []})
+        self.assertEqual(res.status_code, 400)
+
+    def test_firmware_analyze_missing_source(self):
+        res = self.client.post("/api/firmware/analyze", json={})
+        self.assertEqual(res.status_code, 400)
+
+    def test_eda_import_missing_format(self):
+        res = self.client.post("/api/eda/import", json={"content": "..."})
+        self.assertEqual(res.status_code, 400)
+
+    def test_circuit_analyze_empty_components(self):
+        res = self.client.post("/api/circuit/analyze", json={"components": []})
+        self.assertEqual(res.status_code, 400)
+
+    def test_simulation_operating_point_missing_netlist(self):
+        res = self.client.post("/api/simulation/operating-point", json={})
+        self.assertEqual(res.status_code, 200)
+
+    def test_benchmarks_replay_missing_directory(self):
+        res = self.client.post("/api/benchmarks/replay", json={})
+        self.assertEqual(res.status_code, 200)
+
+    def test_session_observations_missing_connections(self):
+        sid = self.client.post("/api/sessions", json={"preset_id": "led_blink"}).get_json()["session_id"]
+        res = self.client.post(f"/api/sessions/{sid}/observations", json={})
+        self.assertEqual(res.status_code, 400)
+
+    def test_session_confirmations_missing_fields(self):
+        sid = self.client.post("/api/sessions", json={"preset_id": "led_blink"}).get_json()["session_id"]
+        res = self.client.post(f"/api/sessions/{sid}/confirmations", json={})
+        self.assertEqual(res.status_code, 400)
+
+    def test_session_netlist_verify_missing_netlist(self):
+        sid = self.client.post("/api/sessions", json={"preset_id": "led_blink"}).get_json()["session_id"]
+        res = self.client.post(f"/api/sessions/{sid}/netlist/verify", json={})
+        self.assertEqual(res.status_code, 400)
+
+    def test_session_instruments_evidence_missing_kind(self):
+        sid = self.client.post("/api/sessions", json={"preset_id": "led_blink"}).get_json()["session_id"]
+        res = self.client.post(f"/api/sessions/{sid}/instruments/evidence", json={})
+        self.assertEqual(res.status_code, 400)
+
+    def test_calibration_no_file(self):
+        res = self.client.post("/api/calibration", data={})
+        self.assertEqual(res.status_code, 400)
+
