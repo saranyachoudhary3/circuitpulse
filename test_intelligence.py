@@ -202,3 +202,94 @@ class IntelligenceLayerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+from intelligence.knowledge import get_full_knowledge_base, get_component_safety_rules
+from intelligence.vlm import CircuitAnalyzer
+from unittest.mock import patch, MagicMock
+
+class VLMAndKnowledgeTests(unittest.TestCase):
+    def test_knowledge_base_contains_required_sections(self):
+        kb = get_full_knowledge_base()
+        self.assertIn("BREADBOARD TOPOLOGY", kb)
+        self.assertIn("ARDUINO UNO PIN REFERENCE", kb)
+        
+    def test_get_component_safety_rules(self):
+        self.assertIn("resistor", get_component_safety_rules("led"))
+        self.assertIn("POLARITY", get_component_safety_rules("capacitor"))
+        self.assertIn("NEVER connect directly", get_component_safety_rules("motor"))
+        self.assertEqual("No specific safety rules found.", get_component_safety_rules("unknown_component"))
+        
+    @patch('intelligence.vlm.os.environ.get')
+    def test_vlm_disabled_by_default(self, mock_env_get):
+        mock_env_get.return_value = None
+        analyzer = CircuitAnalyzer()
+        self.assertFalse(analyzer.api_available)
+
+    @patch('intelligence.vlm.os.environ.get')
+    def test_vlm_parses_json_correctly(self, mock_env_get):
+        import sys
+        mock_genai = MagicMock()
+        sys.modules['google.generativeai'] = mock_genai
+        sys.modules['google'] = MagicMock()
+        
+        def env_get(key, default=""):
+            if key == "CIRCUITPULSE_ENABLE_CLOUD_EXPLAINER": return "1"
+            if key == "GEMINI_API_KEY": return "fake_key"
+            return default
+        mock_env_get.side_effect = env_get
+        
+        analyzer = CircuitAnalyzer()
+        
+        mock_response = MagicMock()
+        mock_response.text = '```json\n{"status": "WORKING", "circuit_type": "TestCircuit"}\n```'
+        analyzer.model.generate_content.return_value = mock_response
+        
+        frame = np.zeros((10, 10, 3), dtype=np.uint8)
+        analyzer._run_analysis(frame, [])
+        
+        result = analyzer.get_latest()
+        self.assertIsNotNone(result)
+        self.assertEqual(result.get("status"), "WORKING")
+        self.assertEqual(result.get("circuit_type"), "TestCircuit")
+        
+    @patch('intelligence.vlm.os.environ.get')
+    def test_vlm_salvages_malformed_json(self, mock_env_get):
+        import sys
+        mock_genai = MagicMock()
+        sys.modules['google.generativeai'] = mock_genai
+        sys.modules['google'] = MagicMock()
+        mock_env_get.side_effect = lambda k, d="": "1" if k == "CIRCUITPULSE_ENABLE_CLOUD_EXPLAINER" else ("fake" if k == "GEMINI_API_KEY" else d)
+        
+        analyzer = CircuitAnalyzer()
+        
+        mock_response = MagicMock()
+        # Text with garbage before and after the JSON block
+        mock_response.text = 'Here is the analysis:\n```json\n{"status": "HAS_ERRORS", "circuit_type": "LED Blink"}\n```\nHope this helps!'
+        analyzer.model.generate_content.return_value = mock_response
+        
+        frame = np.zeros((10, 10, 3), dtype=np.uint8)
+        analyzer._run_analysis(frame, [])
+        
+        result = analyzer.get_latest()
+        self.assertIsNotNone(result)
+        self.assertEqual(result.get("status"), "HAS_ERRORS")
+        
+    @patch('intelligence.vlm.os.environ.get')
+    def test_vlm_handles_totally_invalid_json(self, mock_env_get):
+        import sys
+        mock_genai = MagicMock()
+        sys.modules['google.generativeai'] = mock_genai
+        sys.modules['google'] = MagicMock()
+        mock_env_get.side_effect = lambda k, d="": "1" if k == "CIRCUITPULSE_ENABLE_CLOUD_EXPLAINER" else ("fake" if k == "GEMINI_API_KEY" else d)
+        
+        analyzer = CircuitAnalyzer()
+        
+        mock_response = MagicMock()
+        mock_response.text = 'There is no JSON here, just { some curly braces } that do not contain valid JSON.'
+        analyzer.model.generate_content.return_value = mock_response
+        
+        frame = np.zeros((10, 10, 3), dtype=np.uint8)
+        analyzer._run_analysis(frame, [])
+        
+        result = analyzer.get_latest()
+        self.assertIsNone(result)

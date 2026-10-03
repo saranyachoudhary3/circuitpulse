@@ -1,0 +1,1 @@
+{"preset_id": "led_blink", "fault_class": "reversed_polarity", "frames": [], "confirmations": [{"from": "arduino:D13", "to": "bb:r7a", "accepted": true, "wire_color": "yellow"}, {"from": "bb:r7e", "to": "led:cathode", "accepted": true}, {"from": "led:anode", "to": "arduino:GND", "accepted": true}], "expected_status": "FAULT"}

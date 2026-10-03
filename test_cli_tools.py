@@ -31,19 +31,46 @@ TOOLS_DIR = PROJECT_ROOT / "tools"
 
 
 import os
+import io
+import contextlib
+import importlib.util
+from unittest.mock import patch
 
 def run_cli_tool(tool_name: str, args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
-    """Execute a CLI tool script via subprocess and return completed process."""
+    """Execute a CLI tool script by mocking sys.argv and capturing output."""
     script_path = TOOLS_DIR / tool_name
-    command = [sys.executable, str(script_path)] + args
-    env = dict(os.environ)
-    env["PYTHONPATH"] = str(PROJECT_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
-    return subprocess.run(
-        command,
-        cwd=str(cwd or PROJECT_ROOT),
-        capture_output=True,
-        text=True,
-        env=env,
+    spec = importlib.util.spec_from_file_location("__main__", script_path)
+    module = importlib.util.module_from_spec(spec)
+    
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    returncode = 0
+    
+    original_cwd = os.getcwd()
+    if cwd:
+        os.chdir(cwd)
+        
+    try:
+        with patch('sys.argv', [str(script_path)] + args), \
+             contextlib.redirect_stdout(stdout), \
+             contextlib.redirect_stderr(stderr):
+            try:
+                spec.loader.exec_module(module)
+            except SystemExit as e:
+                returncode = e.code if isinstance(e.code, int) else (1 if e.code else 0)
+                if isinstance(e.code, str):
+                    stderr.write(e.code + "\n")
+            except Exception as e:
+                returncode = 1
+                stderr.write(str(e) + "\n")
+    finally:
+        os.chdir(original_cwd)
+        
+    return subprocess.CompletedProcess(
+        args=[str(script_path)] + args,
+        returncode=returncode,
+        stdout=stdout.getvalue(),
+        stderr=stderr.getvalue()
     )
 
 
@@ -772,3 +799,4 @@ class WriteEngineManifestCliTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

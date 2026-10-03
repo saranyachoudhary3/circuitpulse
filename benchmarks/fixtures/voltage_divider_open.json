@@ -1,0 +1,1 @@
+{"preset_id": "voltage_divider", "fault_class": "open_circuit", "frames": [], "confirmations": [{"from": "arduino:5V", "to": "r1:1", "accepted": true}, {"from": "r1:2", "to": "arduino:A0", "accepted": true}, {"from": "r2:1", "to": "r1:2", "accepted": true}], "expected_status": "INCOMPLETE"}

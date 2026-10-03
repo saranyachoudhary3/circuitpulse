@@ -1,0 +1,1 @@
+{"preset_id": "button_pulldown", "fault_class": "floating_input", "frames": [], "confirmations": [{"from": "arduino:5V", "to": "button:1", "accepted": true}, {"from": "button:2", "to": "arduino:D2", "accepted": true}], "expected_status": "INCOMPLETE"}

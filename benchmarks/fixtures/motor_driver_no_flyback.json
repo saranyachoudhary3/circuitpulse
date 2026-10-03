@@ -1,0 +1,1 @@
+{"preset_id": "motor_driver", "fault_class": "no_flyback", "frames": [], "confirmations": [{"from": "arduino:5V", "to": "motor:VCC", "accepted": true}, {"from": "arduino:GND", "to": "motor:GND", "accepted": true}, {"from": "arduino:D3", "to": "motor:IN", "accepted": true}], "expected_status": "FAULT"}

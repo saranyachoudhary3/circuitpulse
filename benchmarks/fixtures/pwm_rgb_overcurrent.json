@@ -1,0 +1,1 @@
+{"preset_id": "pwm_rgb", "fault_class": "overcurrent", "frames": [], "confirmations": [{"from": "arduino:D9", "to": "rgb:R", "accepted": true}, {"from": "arduino:D10", "to": "rgb:G", "accepted": true}, {"from": "arduino:D11", "to": "rgb:B", "accepted": true}, {"from": "rgb:common", "to": "arduino:GND", "accepted": true}], "expected_status": "FAULT"}

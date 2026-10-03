@@ -1,0 +1,1 @@
+{"preset_id": "led_blink", "fault_class": "missing_resistor", "frames": [], "confirmations": [{"from": "arduino:D13", "to": "led:anode", "accepted": true, "wire_color": "yellow"}, {"from": "led:cathode", "to": "arduino:GND", "accepted": true}], "expected_status": "FAULT"}

@@ -320,3 +320,13 @@ def get_full_knowledge_base():
     return (BREADBOARD_KNOWLEDGE + ARDUINO_KNOWLEDGE + COMPONENT_KNOWLEDGE +
             IC_KNOWLEDGE + CIRCUIT_PATTERNS + ADVANCED_MODULES +
             DEBUGGING_METHODOLOGY)
+
+def get_component_safety_rules(component_type: str) -> str:
+    """Return specific safety rules for a component type."""
+    rules = {
+        "led": "ALWAYS needs a resistor in series (typically 220-330 ohm for 5V, 100-150 ohm for 3.3V).",
+        "capacitor": "Electrolytic (cylindrical, with stripe): HAS POLARITY. Stripe/shorter leg = negative. WRONG POLARITY CAN EXPLODE.",
+        "motor": "NEVER connect directly to Arduino pin (draws too much current). Use a transistor (NPN + flyback diode) or motor driver.",
+        "relay": "Load side can have high voltage. Always use flyback diode on the coil."
+    }
+    return rules.get(component_type.lower(), "No specific safety rules found.")

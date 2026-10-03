@@ -1,0 +1,1 @@
+{"preset_id": "i2c_sensor", "fault_class": "no_pullups", "frames": [], "confirmations": [{"from": "arduino:5V", "to": "sensor:VCC", "accepted": true}, {"from": "arduino:GND", "to": "sensor:GND", "accepted": true}, {"from": "arduino:SDA", "to": "sensor:SDA", "accepted": true}, {"from": "arduino:SCL", "to": "sensor:SCL", "accepted": true}], "expected_status": "FAULT"}
